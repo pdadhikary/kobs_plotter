@@ -79,11 +79,17 @@ def analyze(data_path: Path, sheet_name: str, x_variable: str, y_variable: str) 
         f"Adj. R-Square = {r2_adj: 0.5f}"
     )
 
-    print(result_string)
+    print("\n" + result_string)
 
-    plt.scatter(x, y, c="black")
+    print("\nPlot Settings")
+    plot_title = input("Plot Title: ").strip()
+    x_label = input("Plot X-axis Label: ").strip()
+    y_label = input("Plot Y-axis Label: ").strip()
+    x_axis_scale = eval(input("X-axis Scale factor (default=1.0): ").strip() or "1.0")
+
+    plt.scatter(x * x_axis_scale, y, c="black")
     x_plot = np.linspace(min(x), max(x), 1_000)
-    plt.plot(x_plot, exponential_model(x_plot, *popt), c="red")
+    plt.plot(x_plot * x_axis_scale, exponential_model(x_plot, *popt), c="red")
 
     plt.text(
         0.60,
@@ -96,6 +102,11 @@ def analyze(data_path: Path, sheet_name: str, x_variable: str, y_variable: str) 
         bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
     )
 
+    plt.title(plot_title)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+
+    plt.tight_layout()
     plt.show()
 
 
