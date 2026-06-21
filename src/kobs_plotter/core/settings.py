@@ -1,0 +1,2 @@
+class PlotSettingsBuilder:
+    pass
