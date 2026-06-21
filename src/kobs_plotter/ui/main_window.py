@@ -17,7 +17,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("K Observes Plotter")
-        self.setMinimumSize(1100, 600)
+        self.setMinimumSize(1600, 800)
 
         central = QWidget()
         self.setCentralWidget(central)
