@@ -1,3 +1,5 @@
+from math import exp
+
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -9,6 +11,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QFont
 
 from kobs_plotter.ui.ui_helpers import section_label, field_label, prefix_label, divider
+from kobs_plotter.core.settings import PlotSettingsBuilder
 
 
 PREDEFINED_MODELS = {
@@ -24,9 +27,10 @@ PREDEFINED_MODELS = {
 
 
 class ConfigPanel(QWidget):
-    def __init__(self):
+    def __init__(self, settings_builder: PlotSettingsBuilder):
         super().__init__()
         self.setMaximumWidth(320)
+        self.settings_builder = settings_builder
 
         layout = QVBoxLayout(self)
         layout.setSpacing(16)
@@ -41,7 +45,7 @@ class ConfigPanel(QWidget):
         self.x_transform = QLineEdit()
         self.x_transform.setPlaceholderText("np.log(x)")
         self.x_transform.setFont(QFont("monospace", 9))
-        # TODO: connect to builder.set_x_transform
+        self.x_transform.textChanged.connect(self.settings_builder.set_x_transform)
         x_row.addWidget(self.x_transform)
         layout.addLayout(x_row)
 
@@ -51,7 +55,7 @@ class ConfigPanel(QWidget):
         self.y_transform = QLineEdit()
         self.y_transform.setPlaceholderText("y / 1000")
         self.y_transform.setFont(QFont("monospace", 9))
-        # TODO: connect to builder.set_y_transform
+        self.y_transform.textChanged.connect(self.settings_builder.set_y_transform)
         y_row.addWidget(self.y_transform)
         layout.addLayout(y_row)
 
@@ -64,53 +68,65 @@ class ConfigPanel(QWidget):
         self.model_combo = QComboBox()
         self.model_combo.addItems([*PREDEFINED_MODELS.keys(), "Custom"])
         self.model_combo.currentTextChanged.connect(self._on_model_changed)
-        # TODO: on predefined selection push PREDEFINED_MODELS[name] to builder
         layout.addWidget(self.model_combo)
 
         # ── Custom model box (hidden by default) ─────────────
-        self.custom_box = QWidget()
-        custom_layout = QVBoxLayout(self.custom_box)
-        custom_layout.setContentsMargins(12, 12, 12, 12)
-        custom_layout.setSpacing(10)
-        self.custom_box.setStyleSheet(
+        self.param_box = QWidget()
+        param_box_layout = QVBoxLayout(self.param_box)
+        param_box_layout.setContentsMargins(12, 12, 12, 12)
+        param_box_layout.setSpacing(10)
+        self.param_box.setStyleSheet(
             "QWidget { background: palette(window); "
             "border: 0.5px solid palette(mid); border-radius: 8px; }"
         )
-
-        custom_layout.addWidget(field_label("Model title"))
-        self.model_title_input = QLineEdit()
-        self.model_title_input.setPlaceholderText("e.g. Langmuir isotherm")
-        custom_layout.addWidget(self.model_title_input)
-
-        custom_layout.addWidget(
+        param_box_layout.addWidget(
             field_label("Parameters (comma separated, exclude x and y)")
         )
         self.params_input = QLineEdit()
         self.params_input.setPlaceholderText("A, B, k")
         self.params_input.setFont(QFont("monospace", 9))
-        # TODO: connect to builder.set_indep_vars (parse comma separated string)
-        custom_layout.addWidget(self.params_input)
+        self.params_input.textChanged.connect(self._on_params_changed)
+        param_box_layout.addWidget(self.params_input)
 
-        custom_layout.addWidget(field_label("Formula"))
+        param_box_layout.addWidget(field_label("Formula"))
         formula_row = QHBoxLayout()
         formula_row.addWidget(prefix_label("y ="))
         self.formula_input = QLineEdit()
         self.formula_input.setPlaceholderText("B - A * exp(-k * x)")
         self.formula_input.setFont(QFont("monospace", 9))
-        # TODO: connect to builder.set_expr
+        self.formula_input.textChanged.connect(self.settings_builder.set_formula)
         formula_row.addWidget(self.formula_input)
-        custom_layout.addLayout(formula_row)
-
-        self.save_btn = QPushButton("Save model")
-        # TODO: implement _save_custom_model to persist to JSON in user config dir
-        custom_layout.addWidget(self.save_btn)
-
-        self.custom_box.setVisible(False)
-        layout.addWidget(self.custom_box)
+        param_box_layout.addLayout(formula_row)
+        layout.addWidget(self.param_box)
         layout.addStretch()
 
         self._on_model_changed(self.model_combo.currentText())
 
+    def _on_params_changed(self, param_text: str):
+        tokens = param_text.split(",")
+        params = []
+        p0 = []
+
+        for token in tokens:
+            if "=" in token:
+                param, expr = token.split("=")
+                params.append(param.strip())
+                p0.append(expr.strip() or "1.0")
+            else:
+                params.append(token.strip())
+                p0.append("1.0")
+
+        self.settings_builder.set_params(params)
+        self.settings_builder.set_p0(p0)
+
     def _on_model_changed(self, name: str):
-        self.custom_box.setVisible(name == "Custom")
-        # TODO: on predefined selection, push PREDEFINED_MODELS[name] to builder
+        if name == "Custom":
+            self.params_input.setText("")
+            self.settings_builder.set_params(None)
+            self.formula_input.setText("")
+            self.settings_builder.set_formula(None)
+        elif name in PREDEFINED_MODELS:
+            self.params_input.setText(", ".join(PREDEFINED_MODELS[name]["params"]))
+            self.settings_builder.set_params(PREDEFINED_MODELS[name]["params"])
+            self.formula_input.setText(PREDEFINED_MODELS[name]["expr"])
+            self.settings_builder.set_formula(PREDEFINED_MODELS[name]["expr"])

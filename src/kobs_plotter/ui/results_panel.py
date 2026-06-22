@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
+from kobs_plotter.core.modelling import FitResult
 from kobs_plotter.ui.ui_helpers import section_label, divider
 
 
@@ -68,6 +69,22 @@ class ResultsPanel(QScrollArea):
         self.params_table.setRowCount(0)
         self.gof_table.setRowCount(0)
 
+    def _result_callback(self, result: FitResult, parameters: list[str]):
+        params = []
+
+        for param, opt, err in zip(parameters, result.popt, result.perr):
+            params.append((param, opt, err))
+
+        gof = {
+            "R²": float(result.r2),
+            "Adj. R²": float(result.r2_adj),
+            "RMSE": float(result.rmse),
+            "MAE": float(result.mae),
+            "SSE": float(result.sse),
+        }
+
+        self.display(params, gof)
+
     def display(self, params: list[tuple[str, float, float]], gof: dict[str, float]):
         """
         params: list of (symbol, value, std_error)
@@ -75,6 +92,10 @@ class ResultsPanel(QScrollArea):
                 e.g. {"R²": 0.997, "Adj. R²": 0.996, "RMSE": 0.0023}
         TODO: call this from main window after compute returns a PlotResult
         """
+        # Clear tables before repopulating
+        self.params_table.clearContents()
+        self.gof_table.clearContents()
+
         # Parameters table
         self.params_table.setRowCount(len(params))
         for row, (symbol, value, err) in enumerate(params):

@@ -1,3 +1,5 @@
+from typing import Callable
+
 from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -10,14 +12,19 @@ from PySide6.QtWidgets import (
 from kobs_plotter.ui.file_panel import FilePanel
 from kobs_plotter.ui.config_panel import ConfigPanel
 from kobs_plotter.ui.plot_panel import PlotPanel
+from kobs_plotter.ui.plot_window import PlotWindow
 from kobs_plotter.ui.results_panel import ResultsPanel
+
+from kobs_plotter.core.settings import PlotSettingsBuilder
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, compute: Callable):
         super().__init__()
         self.setWindowTitle("K Observes Plotter")
         self.setMinimumSize(1600, 800)
+        self.compute = compute
+        self._plot_window = PlotWindow(parent=self)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -29,9 +36,11 @@ class MainWindow(QMainWindow):
         panels_row = QHBoxLayout()
         panels_row.setSpacing(0)
 
-        self.file_panel = FilePanel()
-        self.config_panel = ConfigPanel()
-        self.plot_panel = PlotPanel()
+        self.settings_builder = PlotSettingsBuilder()
+
+        self.file_panel = FilePanel(self.settings_builder)
+        self.config_panel = ConfigPanel(self.settings_builder)
+        self.plot_panel = PlotPanel(self.settings_builder)
         self.results_panel = ResultsPanel()
 
         panels_row.addWidget(self.file_panel)
@@ -66,12 +75,15 @@ class MainWindow(QMainWindow):
         root.addLayout(action_bar)
 
     def _compute(self):
-        # TODO:
-        # 1. call self.builder.build() to get PlotSettings
-        # 2. call compute(settings) from core.engine
-        # 3. call self.results_panel.display(params, gof)
-        # 4. open matplotlib window with the plot
-        pass
+        print(self.settings_builder.build())
+        settings = self.settings_builder.build()
+        self.compute(settings, self.results_panel._result_callback, self._plot_callback)
+
+    def _plot_callback(self, **kwargs):
+        self._plot_window.show()
+        self._plot_window.raise_()
+
+        self._plot_window.plot(**kwargs)
 
     def _reset(self):
         # TODO: clear all inputs across panels and reset results_panel

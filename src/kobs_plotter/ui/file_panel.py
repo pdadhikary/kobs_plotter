@@ -11,12 +11,14 @@ from PySide6.QtWidgets import QFileDialog
 import pandas as pd
 
 from kobs_plotter.ui.ui_helpers import section_label, field_label, divider
+from kobs_plotter.core.settings import PlotSettingsBuilder
 
 
 class FilePanel(QWidget):
-    def __init__(self):
+    def __init__(self, settings_builder: PlotSettingsBuilder):
         super().__init__()
         self.setMaximumWidth(320)
+        self.settings_builder = settings_builder
 
         layout = QVBoxLayout(self)
         layout.setSpacing(16)
@@ -44,7 +46,6 @@ class FilePanel(QWidget):
         layout.addWidget(field_label("Sheet"))
         self.sheet_combo = QComboBox()
         self.sheet_combo.currentTextChanged.connect(self._on_sheet_changed)
-        # TODO: connect to builder.set_df on sheet change
         layout.addWidget(self.sheet_combo)
 
         # ── Column selectors ─────────────────────────────────
@@ -54,13 +55,13 @@ class FilePanel(QWidget):
         x_col = QVBoxLayout()
         x_col.addWidget(field_label("X column"))
         self.x_combo = QComboBox()
-        # TODO: connect to builder.set_x_col
+        self.x_combo.currentTextChanged.connect(self.settings_builder.set_x_col)
         x_col.addWidget(self.x_combo)
 
         y_col = QVBoxLayout()
         y_col.addWidget(field_label("Y column"))
         self.y_combo = QComboBox()
-        # TODO: connect to builder.set_y_col
+        self.y_combo.currentTextChanged.connect(self.settings_builder.set_y_col)
         y_col.addWidget(self.y_combo)
 
         col_row.addLayout(x_col)
@@ -75,6 +76,7 @@ class FilePanel(QWidget):
         )
         if path:
             self.file_path_input.setText(path)
+            self.settings_builder.set_data_path(path)
             self._load_sheets(path)
 
     def _load_sheets(self, path: str):
@@ -98,6 +100,6 @@ class FilePanel(QWidget):
                 combo.addItems(cols)
             if len(cols) >= 2:
                 self.y_combo.setCurrentIndex(1)
-            # TODO: push column names to builder if needed
+            self.settings_builder.set_sheet_name(sheet_name)
         except Exception as e:
             print(f"Sheet load error: {e}")
