@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QLabel, QFrame
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QFrame, QLabel
 
 
 def section_label(text: str) -> QLabel:

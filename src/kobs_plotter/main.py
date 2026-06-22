@@ -1,12 +1,13 @@
 import sys
 from typing import Callable
+
 from PySide6.QtWidgets import QApplication
-from kobs_plotter.ui.main_window import MainWindow
-from kobs_plotter.core.settings import PlotSettings
 
 from kobs_plotter.core.data_loader import load_data
 from kobs_plotter.core.modelling import fit
 from kobs_plotter.core.plotting import plot
+from kobs_plotter.core.settings import PlotSettings
+from kobs_plotter.ui.main_window import MainWindow
 
 
 def main():

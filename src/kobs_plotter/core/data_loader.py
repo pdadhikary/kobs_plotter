@@ -1,7 +1,8 @@
+import sys
 from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
-import sys
 
 from kobs_plotter.core.settings import PlotSettings
 

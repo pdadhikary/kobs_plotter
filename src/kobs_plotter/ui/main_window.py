@@ -1,21 +1,20 @@
 from typing import Callable
 
 from PySide6.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QHBoxLayout,
-    QVBoxLayout,
-    QPushButton,
     QFrame,
+    QHBoxLayout,
+    QMainWindow,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
 
-from kobs_plotter.ui.file_panel import FilePanel
+from kobs_plotter.core.settings import PlotSettingsBuilder
 from kobs_plotter.ui.config_panel import ConfigPanel
+from kobs_plotter.ui.file_panel import FilePanel
 from kobs_plotter.ui.plot_panel import PlotPanel
 from kobs_plotter.ui.plot_window import PlotWindow
 from kobs_plotter.ui.results_panel import ResultsPanel
-
-from kobs_plotter.core.settings import PlotSettingsBuilder
 
 
 class MainWindow(QMainWindow):

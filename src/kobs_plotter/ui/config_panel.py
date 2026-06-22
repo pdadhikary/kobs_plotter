@@ -1,18 +1,14 @@
-from math import exp
-
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QComboBox,
     QHBoxLayout,
     QLineEdit,
-    QComboBox,
-    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QFont
 
-from kobs_plotter.ui.ui_helpers import section_label, field_label, prefix_label, divider
 from kobs_plotter.core.settings import PlotSettingsBuilder
-
+from kobs_plotter.ui.ui_helpers import divider, field_label, prefix_label, section_label
 
 PREDEFINED_MODELS = {
     "Exponential — y = B - A·exp(-k·x)": {

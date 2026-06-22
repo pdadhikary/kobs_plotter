@@ -2,12 +2,12 @@ import sys
 from dataclasses import dataclass
 from typing import Callable
 
-from scipy.optimize import curve_fit
-from sympy import sympify, lambdify, symbols
 import numpy as np
+from scipy.optimize import curve_fit
+from sympy import lambdify, symbols, sympify
 
-from kobs_plotter.core.settings import PlotSettings
 from kobs_plotter.core.data_loader import PlotDataSeries
+from kobs_plotter.core.settings import PlotSettings
 
 
 @dataclass(frozen=True)

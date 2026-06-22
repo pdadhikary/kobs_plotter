@@ -1,17 +1,17 @@
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QScrollArea,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QSizePolicy,
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QHeaderView,
+    QScrollArea,
+    QSizePolicy,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from kobs_plotter.core.modelling import FitResult
-from kobs_plotter.ui.ui_helpers import section_label, divider
+from kobs_plotter.ui.ui_helpers import divider, section_label
 
 
 class ResultsPanel(QScrollArea):

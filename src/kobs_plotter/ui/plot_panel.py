@@ -1,15 +1,13 @@
-# src/kobs_plotter/ui/plot_panel.py
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QLineEdit,
-    QComboBox,
-)
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QComboBox,
+    QLineEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from kobs_plotter.ui.ui_helpers import section_label, field_label, divider
 from kobs_plotter.core.settings import PlotSettingsBuilder
-
+from kobs_plotter.ui.ui_helpers import divider, field_label, section_label
 
 LINESTYLES = ["-", "--", "-.", ":"]
 

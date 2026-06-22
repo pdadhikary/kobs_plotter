@@ -1,7 +1,7 @@
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
-from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 from numpy import ndarray
+from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 
 from kobs_plotter.core.settings import PlotSettings
 
@@ -42,14 +42,13 @@ class PlotWindow(QMainWindow):
         ax.set_xlabel(settings.x_label or "")
         ax.set_ylabel(settings.y_label or "")
 
-        ax.text(
-            0.60,
-            0.05,
+        self.figure.text(
+            0.67,
+            0.50,
             result_string,
-            transform=ax.transAxes,
             fontsize=9,
-            verticalalignment="bottom",
-            horizontalalignment="left",
+            family="monospace",
+            verticalalignment="center",
             bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
         )
 

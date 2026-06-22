@@ -1,17 +1,17 @@
+import pandas as pd
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QComboBox,
+    QFileDialog,
     QHBoxLayout,
     QLineEdit,
     QPushButton,
-    QComboBox,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QFileDialog
-import pandas as pd
 
-from kobs_plotter.ui.ui_helpers import section_label, field_label, divider
 from kobs_plotter.core.settings import PlotSettingsBuilder
+from kobs_plotter.ui.ui_helpers import divider, field_label, section_label
 
 
 class FilePanel(QWidget):
