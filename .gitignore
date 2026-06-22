@@ -6,5 +6,9 @@ dist/
 wheels/
 *.egg-info
 
+# drawio
+assets/**/*.drawio
+assets/**/*.bkp
+
 # Virtual environments
 .venv
