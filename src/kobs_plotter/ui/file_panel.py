@@ -103,3 +103,13 @@ class FilePanel(QWidget):
             self.settings_builder.set_sheet_name(sheet_name)
         except Exception as e:
             print(f"Sheet load error: {e}")
+
+    def on_reset(self):
+        self.file_path_input.setText("")
+        self.settings_builder.set_data_path(None)
+        self.sheet_combo.clear()
+        self.settings_builder.set_sheet_name(None)
+        self.x_combo.clear()
+        self.settings_builder.set_x_col(None)
+        self.y_combo.clear()
+        self.settings_builder.set_y_col(None)

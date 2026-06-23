@@ -126,3 +126,9 @@ class ConfigPanel(QWidget):
             self.settings_builder.set_params(PREDEFINED_MODELS[name]["params"])
             self.formula_input.setText(PREDEFINED_MODELS[name]["expr"])
             self.settings_builder.set_formula(PREDEFINED_MODELS[name]["expr"])
+
+    def on_reset(self):
+        self.x_transform.setText("")
+        self.y_transform.setText("")
+
+        self.model_combo.setCurrentIndex(0)
