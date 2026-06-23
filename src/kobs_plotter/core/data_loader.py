@@ -27,8 +27,12 @@ def load_data(settings: PlotSettings) -> PlotDataSeries:
         print(f"[error] x transform: {e}", file=sys.stderr)
         raise ValueError(f'Invalid transform: "{settings.x_transform}"')
 
-    if x_prime:
+    if isinstance(x_prime, np.ndarray):
         x = x_prime
+    elif settings.x_transform:
+        raise ValueError(
+            f'Transform "{settings.x_transform}" did not return a valid numpy array.'
+        )
 
     try:
         if settings.y_transform and settings.y_transform.strip():
@@ -37,7 +41,11 @@ def load_data(settings: PlotSettings) -> PlotDataSeries:
         print(f"[error] x transform: {e}", file=sys.stderr)
         raise ValueError(f'Invalid tansform: "{settings.y_transform}"')
 
-    if y_prime:
+    if isinstance(y_prime, np.ndarray):
         y = y_prime
+    elif settings.y_transform:
+        raise ValueError(
+            f'Transform "{settings.y_transform}" did not return a valid numpy array.'
+        )
 
     return PlotDataSeries(x, y)
