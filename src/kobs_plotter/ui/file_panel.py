@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from kobs_plotter.core.settings import PlotSettingsBuilder
-from kobs_plotter.ui.ui_helpers import divider, field_label, section_label
+from kobs_plotter.ui.ui_helpers import divider, field_label, section_label, show_error
 
 
 class FilePanel(QWidget):
@@ -85,7 +85,7 @@ class FilePanel(QWidget):
             self.sheet_combo.clear()
             self.sheet_combo.addItems(xl.sheet_names)
         except Exception as e:
-            self.file_path_input.setText(f"Error: {e}")
+            show_error(self, "I/O Error", str(e))
 
     def _on_sheet_changed(self, sheet_name: str):
         path = self.file_path_input.text()

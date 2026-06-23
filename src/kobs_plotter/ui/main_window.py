@@ -15,6 +15,7 @@ from kobs_plotter.ui.file_panel import FilePanel
 from kobs_plotter.ui.plot_panel import PlotPanel
 from kobs_plotter.ui.plot_window import PlotWindow
 from kobs_plotter.ui.results_panel import ResultsPanel
+from kobs_plotter.ui.ui_helpers import show_error, show_warning
 
 
 class MainWindow(QMainWindow):
@@ -78,9 +79,17 @@ class MainWindow(QMainWindow):
         root.addLayout(action_bar)
 
     def _compute(self):
-        print(self.settings_builder.build())
-        settings = self.settings_builder.build()
-        self.compute(settings, self.results_panel._result_callback, self._plot_callback)
+        try:
+            settings = self.settings_builder.build()
+            self.compute(
+                settings, self.results_panel._result_callback, self._plot_callback
+            )
+        except ValueError as e:
+            show_warning(self, "Error", str(e))
+        except RuntimeError as e:
+            show_warning(self, "Error", str(e))
+        except Exception as e:
+            show_error(self, "Error", str(e))
 
     def _plot_callback(self, **kwargs):
         self._plot_window.show()
