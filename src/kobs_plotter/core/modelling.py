@@ -83,7 +83,7 @@ def fit(data: PlotDataSeries, settings: PlotSettings):
             print(f"[error] fit: {e}", file=sys.stderr)
             raise ValueError(f'Invalid expression: "{starting_expr}"')
 
-    popt, pcov = curve_fit(model, x, y, p0=p0, method="lm")
+    popt, pcov = curve_fit(model, x, y, p0=p0, method="lm", maxfev=1_000)
 
     y_pred = model(x, *popt)
     gof = _goodness_of_fit(y, y_pred, len(p0))
