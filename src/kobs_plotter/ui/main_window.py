@@ -62,7 +62,11 @@ class MainWindow(QMainWindow):
         self.reset_btn = QPushButton("Reset")
         self.reset_btn.setFixedWidth(100)
         self.reset_btn.clicked.connect(self._reset)
-        # TODO: implement _reset to clear all panel inputs and results
+        self.reset_btn.clicked.connect(self.file_panel.on_reset)
+        self.reset_btn.clicked.connect(self.config_panel.on_reset)
+        self.reset_btn.clicked.connect(self.plot_panel.on_reset)
+        self.reset_btn.clicked.connect(self.results_panel.on_reset)
+        self.reset_btn.clicked.connect(self._plot_window.on_reset)
 
         self.compute_btn = QPushButton("Generate plot")
         self.compute_btn.setFixedWidth(120)

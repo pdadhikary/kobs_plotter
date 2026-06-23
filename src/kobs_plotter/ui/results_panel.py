@@ -124,3 +124,11 @@ class ResultsPanel(QScrollArea):
         total = sum(table.rowHeight(i) for i in range(table.rowCount()))
         total += table.horizontalHeader().height() + 4
         table.setFixedHeight(total)
+
+    def on_reset(self):
+        self.params_table.clearContents()
+        self.params_table.setRowCount(0)
+        self._resize_table(self.params_table)
+        self.gof_table.clearContents()
+        self.gof_table.setRowCount(0)
+        self._resize_table(self.gof_table)

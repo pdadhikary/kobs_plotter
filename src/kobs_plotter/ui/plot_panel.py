@@ -10,6 +10,9 @@ from kobs_plotter.core.settings import PlotSettingsBuilder
 from kobs_plotter.ui.ui_helpers import divider, field_label, section_label
 
 LINESTYLES = ["-", "--", "-.", ":"]
+DEFAULT_SCATTER_COLOR = "black"
+DEFAULT_LINE_COLOR = "red"
+DEFAULT_LINE_STYLE_INDEX = 0
 
 
 class PlotPanel(QWidget):
@@ -55,7 +58,7 @@ class PlotPanel(QWidget):
         self.scatter_color_input.textChanged.connect(
             self.settings_builder.set_point_color
         )
-        self.scatter_color_input.setText("black")
+        self.scatter_color_input.setText(DEFAULT_SCATTER_COLOR)
         layout.addWidget(self.scatter_color_input)
 
         layout.addWidget(divider())
@@ -68,7 +71,7 @@ class PlotPanel(QWidget):
         self.line_color_input.setPlaceholderText("e.g. red, blue, #FF5733")
         self.line_color_input.setFont(QFont("monospace", 9))
         self.line_color_input.textChanged.connect(self.settings_builder.set_line_color)
-        self.line_color_input.setText("red")
+        self.line_color_input.setText(DEFAULT_LINE_COLOR)
         layout.addWidget(self.line_color_input)
 
         layout.addWidget(field_label("Line style"))
@@ -80,3 +83,12 @@ class PlotPanel(QWidget):
         layout.addWidget(self.linestyle_combo)
 
         layout.addStretch()
+
+    def on_reset(self):
+        self.title_input.setText("")
+        self.x_label_input.setText("")
+        self.y_label_input.setText("")
+
+        self.scatter_color_input.setText(DEFAULT_SCATTER_COLOR)
+        self.line_color_input.setText(DEFAULT_LINE_COLOR)
+        self.linestyle_combo.setCurrentIndex(DEFAULT_LINE_STYLE_INDEX)

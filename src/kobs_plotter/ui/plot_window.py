@@ -53,3 +53,10 @@ class PlotWindow(QMainWindow):
         )
 
         self.canvas.draw()
+
+    def on_reset(self):
+        with plt.style.context("ggplot"):
+            self.figure.clear()
+            self.figure.set_facecolor(plt.rcParams["figure.facecolor"])
+            self.figure.add_subplot(111)
+            self.canvas.draw()
