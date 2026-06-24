@@ -15,6 +15,7 @@ class PlotSettings:
     params: list[str]
     formula: str
     p0: list[str]
+    plot_theme: str
     title: Optional[str]
     x_label: Optional[str]
     y_label: Optional[str]
@@ -43,6 +44,7 @@ class PlotSettingsBuilder:
         self._title: Optional[str] = None
         self._x_label: Optional[str] = None
         self._y_label: Optional[str] = None
+        self._plot_theme: Optional[str] = None
         self._point_color: Optional[str] = "black"
         self._line_color: Optional[str] = "red"
         self._line_style: Optional[str] = "-"
@@ -81,6 +83,10 @@ class PlotSettingsBuilder:
 
     def set_p0(self, p0: Optional[list[str]]) -> "PlotSettingsBuilder":
         self._p0 = p0
+        return self
+
+    def set_plot_theme(self, theme: str) -> "PlotSettingsBuilder":
+        self._plot_theme = theme
         return self
 
     def set_title(self, title: Optional[str]) -> "PlotSettingsBuilder":
@@ -154,6 +160,7 @@ class PlotSettingsBuilder:
             params=self._params,
             formula=self._formula,
             p0=self._p0,
+            plot_theme=self._plot_theme,
             title=self._title,
             x_label=self._x_label,
             y_label=self._y_label,

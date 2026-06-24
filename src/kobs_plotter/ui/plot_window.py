@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 from numpy import ndarray
@@ -32,27 +33,28 @@ class PlotWindow(QMainWindow):
         result_string: str,
         settings: PlotSettings,
     ):
-        self.figure.clear()
-        ax = self.figure.add_subplot(111)
-
-        ax.scatter(x, y, color=settings.point_color, zorder=5)
-        ax.plot(x_fit, y_fit, color=settings.line_color, linestyle=settings.line_style)
-
-        ax.set_title(settings.title or "")
-        ax.set_xlabel(settings.x_label or "")
-        ax.set_ylabel(settings.y_label or "")
-
-        self.figure.text(
-            0.67,
-            0.50,
-            result_string,
-            fontsize=9,
-            family="monospace",
-            verticalalignment="center",
-            bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
-        )
-
-        self.canvas.draw()
+        with plt.style.context(settings.plot_theme):
+            self.figure.clear()
+            self.figure.set_facecolor(plt.rcParams["figure.facecolor"])
+            ax = self.figure.add_subplot(111)
+            ax.scatter(x, y, color=settings.point_color, zorder=5)
+            ax.plot(
+                x_fit, y_fit, color=settings.line_color, linestyle=settings.line_style
+            )
+            ax.set_title(settings.title or "")
+            ax.set_xlabel(settings.x_label or "")
+            ax.set_ylabel(settings.y_label or "")
+            self.figure.subplots_adjust(right=0.65)
+            self.figure.text(
+                0.67,
+                0.50,
+                result_string,
+                fontsize=9,
+                family="monospace",
+                verticalalignment="center",
+                bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+            )
+            self.canvas.draw()
 
     def on_reset(self):
         with plt.style.context("ggplot"):
