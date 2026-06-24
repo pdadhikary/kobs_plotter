@@ -9,6 +9,15 @@ from PySide6.QtWidgets import (
 from kobs_plotter.core.settings import PlotSettingsBuilder
 from kobs_plotter.ui.ui_helpers import divider, field_label, section_label
 
+PLOT_THEMES = [
+    "ggplot",
+    "fivethirtyeight",
+    "seaborn-v0_8-whitegrid",
+    "seaborn-v0_8-bright",
+    "seaborn-v0_8-paper",
+    "seaborn-v0_8-poster",
+    "seaborn-v0_8-darkgrid",
+]
 LINESTYLES = ["-", "--", "-.", ":"]
 DEFAULT_SCATTER_COLOR = "black"
 DEFAULT_LINE_COLOR = "red"
@@ -24,6 +33,15 @@ class PlotPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(16)
         layout.setContentsMargins(16, 16, 16, 16)
+
+        layout.addWidget(section_label("Plot Theme"))
+        self.plot_theme_combo = QComboBox()
+        self.plot_theme_combo.currentTextChanged.connect(
+            self.settings_builder.set_plot_theme
+        )
+        self.plot_theme_combo.addItems(PLOT_THEMES)
+        self.plot_theme_combo.setCurrentIndex(0)
+        layout.addWidget(self.plot_theme_combo)
 
         # ── Labels ───────────────────────────────────────────
         layout.addWidget(section_label("Plot labels"))
@@ -89,6 +107,7 @@ class PlotPanel(QWidget):
         self.x_label_input.setText("")
         self.y_label_input.setText("")
 
+        self.plot_theme_combo.setCurrentIndex(0)
         self.scatter_color_input.setText(DEFAULT_SCATTER_COLOR)
         self.line_color_input.setText(DEFAULT_LINE_COLOR)
         self.linestyle_combo.setCurrentIndex(DEFAULT_LINE_STYLE_INDEX)
