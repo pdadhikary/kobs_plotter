@@ -34,7 +34,7 @@ def plot(
     result_string = [
         "---Formula---",
         "",
-        f"y={settings.formula}",
+        f"$y={result.formula_latex}$",
         "---Result---",
         *parameter_string,
         "",

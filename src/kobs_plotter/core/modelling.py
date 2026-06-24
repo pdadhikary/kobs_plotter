@@ -4,7 +4,7 @@ from typing import Callable
 
 import numpy as np
 from scipy.optimize import curve_fit
-from sympy import lambdify, symbols, sympify
+from sympy import Basic, lambdify, latex, symbols, sympify
 
 from kobs_plotter.core.data_loader import PlotDataSeries
 from kobs_plotter.core.settings import PlotSettings
@@ -12,6 +12,7 @@ from kobs_plotter.core.settings import PlotSettings
 
 @dataclass(frozen=True)
 class FitResult:
+    formula_latex: str
     popt: np.ndarray
     pcov: np.ndarray
     model: Callable
@@ -32,7 +33,7 @@ class GoodnessOfFit:
     sse: np.float64
 
 
-def _build_model(settings: PlotSettings) -> Callable:
+def _build_model(settings: PlotSettings) -> tuple[Callable, Basic]:
     x_sym = symbols("x")
     param_syms = symbols(settings.params)
 
@@ -43,7 +44,7 @@ def _build_model(settings: PlotSettings) -> Callable:
 
     model = lambdify([x_sym, *param_syms], expr, modules="numpy")
 
-    return model
+    return model, expr
 
 
 def _goodness_of_fit(y: np.ndarray, y_pred: np.ndarray, n_params: int) -> GoodnessOfFit:
@@ -68,7 +69,7 @@ def _goodness_of_fit(y: np.ndarray, y_pred: np.ndarray, n_params: int) -> Goodne
 
 
 def fit(data: PlotDataSeries, settings: PlotSettings):
-    model = _build_model(settings)
+    model, expr = _build_model(settings)
     x = data.x
     y = data.y
 
@@ -90,6 +91,7 @@ def fit(data: PlotDataSeries, settings: PlotSettings):
     perr = np.sqrt(np.diag(pcov))
 
     return FitResult(
+        formula_latex=latex(expr),
         popt=popt,
         pcov=pcov,
         model=model,
