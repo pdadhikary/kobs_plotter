@@ -11,13 +11,27 @@ from kobs_plotter.core.settings import PlotSettingsBuilder
 from kobs_plotter.ui.ui_helpers import divider, field_label, prefix_label, section_label
 
 PREDEFINED_MODELS = {
-    "Exponential — y = B - A·exp(-k·x)": {
+    "Exponential Decay — y = B - A·exp(-k·x)": {
         "expr": "B - A * exp(-k * x)",
         "params": ["A", "B", "k"],
     },
-    "Linear — y = mx + b": {
+    "Exponential — A·exp(kx)": {"expr": "A * exp(k * x)", "params": ["A", "k"]},
+    "Linear": {
         "expr": "m * x + b",
         "params": ["m", "b"],
+    },
+    "Quadratic": {
+        "expr": "a * x**2 + b * x + c",
+        "params": ["a", "b", "c"],
+    },
+    "Cubic": {
+        "expr": "a * x**3 + b * x**2 + c * x + d",
+        "params": ["a", "b", "c", "d"],
+    },
+    "Logarithmic — y = a + b·ln(x)": {"expr": "a + b * log(x)", "params": ["a", "b"]},
+    "Sigmodal": {
+        "expr": "L / (1 + exp(-k * (x - a)))",
+        "params": ["L", "a", "k"],
     },
 }
 
