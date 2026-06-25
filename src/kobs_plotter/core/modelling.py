@@ -17,6 +17,7 @@ class FitResult:
     pcov: np.ndarray
     model: Callable
     perr: np.ndarray
+    residuals: np.float64
     r2: np.float64
     r2_adj: np.float64
     rmse: np.float64
@@ -26,6 +27,7 @@ class FitResult:
 
 @dataclass
 class GoodnessOfFit:
+    residuals: np.float64
     r2: np.float64
     r2_adj: np.float64
     rmse: np.float64
@@ -49,7 +51,7 @@ def _build_model(settings: PlotSettings) -> tuple[Callable, Basic]:
 
 def _goodness_of_fit(y: np.ndarray, y_pred: np.ndarray, n_params: int) -> GoodnessOfFit:
     n = len(y)
-    residuals = y - y_pred
+    residuals = np.float64(y - y_pred)
 
     sse = np.float64(np.sum(residuals**2))
     ss_tot = np.sum((y - np.mean(y)) ** 2)
@@ -60,6 +62,7 @@ def _goodness_of_fit(y: np.ndarray, y_pred: np.ndarray, n_params: int) -> Goodne
     mae = np.float64(np.mean(np.abs(residuals)))
 
     return GoodnessOfFit(
+        residuals,
         r2,
         r2_adj,
         rmse,
@@ -96,6 +99,7 @@ def fit(data: PlotDataSeries, settings: PlotSettings):
         pcov=pcov,
         model=model,
         perr=perr,
+        residuals=gof.residuals,
         r2=gof.r2,
         r2_adj=gof.r2_adj,
         rmse=gof.rmse,
