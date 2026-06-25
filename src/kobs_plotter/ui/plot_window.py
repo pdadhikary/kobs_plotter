@@ -82,7 +82,7 @@ class PlotWindow(QMainWindow):
 
     def _plot_3d(self, x, y, z, x_fit, y_fit, z_fit, result_string, settings):
         ax = self.figure.add_subplot(111, projection="3d")
-        ax.scatter(x, y, z, color=settings.point_color, zorder=5)
+        ax.scatter(x, y, z, alpha=0.6, color=settings.point_color, zorder=5)
         ax.plot_surface(x_fit, y_fit, z_fit, cmap=settings.colormap, alpha=0.6)
         ax.set_title(settings.title or "")
         ax.set_xlabel(settings.x_label or "")
