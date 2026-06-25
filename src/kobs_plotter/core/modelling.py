@@ -7,7 +7,7 @@ from scipy.optimize import curve_fit
 from sympy import Basic, lambdify, latex, symbols, sympify
 
 from kobs_plotter.core.data_loader import PlotDataSeries
-from kobs_plotter.core.settings import PlotSettings
+from kobs_plotter.core.settings import PlotSettings, PlotType
 
 
 @dataclass(frozen=True)
@@ -36,15 +36,22 @@ class GoodnessOfFit:
 
 
 def _build_model(settings: PlotSettings) -> tuple[Callable, Basic]:
-    x_sym = symbols("x")
     param_syms = symbols(settings.params)
-
     if not isinstance(param_syms, (list, tuple)):
         param_syms = [param_syms]
-
     expr = sympify(settings.formula)
 
-    model = lambdify([x_sym, *param_syms], expr, modules="numpy")
+    if settings.plot_type == PlotType.SURFACE_3D:
+        x_sym, y_sym = symbols("x y")
+        raw_func = lambdify([x_sym, y_sym, *param_syms], expr, modules="numpy")
+
+        def model(XY, *params):
+            x, y = XY
+            return raw_func(x, y, *params)
+
+    else:
+        x_sym = symbols("x")
+        model = lambdify([x_sym, *param_syms], expr, modules="numpy")
 
     return model, expr
 
@@ -75,6 +82,7 @@ def fit(data: PlotDataSeries, settings: PlotSettings):
     model, expr = _build_model(settings)
     x = data.x
     y = data.y
+    z = np.array([]) if not isinstance(data.z, np.ndarray) else data.z
 
     p0 = []
 
@@ -87,10 +95,14 @@ def fit(data: PlotDataSeries, settings: PlotSettings):
             print(f"[error] fit: {e}", file=sys.stderr)
             raise ValueError(f'Invalid expression: "{starting_expr}"')
 
-    popt, pcov = curve_fit(model, x, y, p0=p0, method="lm", maxfev=1_000)
-
-    y_pred = model(x, *popt)
-    gof = _goodness_of_fit(y, y_pred, len(p0))
+    if settings.plot_type == PlotType.SURFACE_3D:
+        popt, pcov = curve_fit(model, (x, y), z, p0=p0, method="lm", maxfev=1_000)
+        z_pred = model((x, y), *popt)
+        gof = _goodness_of_fit(z, z_pred, len(p0))
+    else:
+        popt, pcov = curve_fit(model, x, y, p0=p0, method="lm", maxfev=1_000)
+        y_pred = model(x, *popt)
+        gof = _goodness_of_fit(y, y_pred, len(p0))
     perr = np.sqrt(np.diag(pcov))
 
     return FitResult(
