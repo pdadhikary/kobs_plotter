@@ -84,6 +84,14 @@ class PlotWindow(QMainWindow):
         ax = self.figure.add_subplot(111, projection="3d")
         ax.scatter(x, y, z, alpha=0.6, color=settings.point_color, zorder=5)
         ax.plot_surface(x_fit, y_fit, z_fit, cmap=settings.colormap, alpha=0.6)
+        ax.contour(
+            x_fit,
+            y_fit,
+            z_fit,
+            zdir="z",
+            offset=ax.get_zlim()[0],
+            cmap=settings.colormap,
+        )
         ax.set_title(settings.title or "")
         ax.set_xlabel(settings.x_label or "")
         ax.set_ylabel(settings.y_label or "")
