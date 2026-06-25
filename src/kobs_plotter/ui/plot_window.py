@@ -38,6 +38,8 @@ class PlotWindow(QMainWindow):
         settings: PlotSettings,
         z: Optional[np.ndarray] = None,
         z_fit: Optional[np.ndarray] = None,
+        conf_lower: Optional[np.ndarray] = None,
+        conf_upper: Optional[np.ndarray] = None,
     ):
         with plt.style.context(settings.plot_theme):
             self._clear()
@@ -45,14 +47,25 @@ class PlotWindow(QMainWindow):
             if settings.plot_type == PlotType.SURFACE_3D:
                 self._plot_3d(x, y, z, x_fit, y_fit, z_fit, result_string, settings)
             else:
-                self._plot_2d(x, y, x_fit, y_fit, result_string, settings)
+                self._plot_2d(
+                    x, y, x_fit, y_fit, conf_lower, conf_upper, result_string, settings
+                )
 
             self.canvas.draw()
 
-    def _plot_2d(self, x, y, x_fit, y_fit, result_string, settings):
+    def _plot_2d(
+        self, x, y, x_fit, y_fit, conf_lower, conf_upper, result_string, settings
+    ):
         ax = self.figure.add_subplot(111)
         ax.scatter(x, y, color=settings.point_color, zorder=5)
         ax.plot(x_fit, y_fit, color=settings.line_color, linestyle=settings.line_style)
+        ax.fill_between(
+            x_fit,
+            conf_lower,
+            conf_upper,
+            alpha=0.2,
+            color=settings.line_color,
+        )
         ax.set_title(settings.title or "")
         ax.set_xlabel(settings.x_label or "")
         ax.set_ylabel(settings.y_label or "")
