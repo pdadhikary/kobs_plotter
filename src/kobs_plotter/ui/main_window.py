@@ -1,15 +1,18 @@
+import traceback
 from typing import Callable
 
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QHBoxLayout,
+    QLabel,
     QMainWindow,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
-from kobs_plotter.core.settings import PlotSettingsBuilder
+from kobs_plotter.core.settings import PlotSettingsBuilder, PlotType
 from kobs_plotter.ui.config_panel import ConfigPanel
 from kobs_plotter.ui.file_panel import FilePanel
 from kobs_plotter.ui.plot_panel import PlotPanel
@@ -60,6 +63,13 @@ class MainWindow(QMainWindow):
         action_bar.setSpacing(8)
         action_bar.addStretch()
 
+        action_bar.addWidget(QLabel("Plot type:"))
+        self.plot_type_combo = QComboBox()
+        self.plot_type_combo.addItems(["Scatter / Line", "Surface 3D"])
+        self.plot_type_combo.currentIndexChanged.connect(self._on_plot_type_changed)
+        action_bar.addWidget(self.plot_type_combo)
+        action_bar.addSpacing(16)
+
         self.reset_btn = QPushButton("Reset")
         self.reset_btn.setFixedWidth(100)
         self.reset_btn.clicked.connect(self._reset)
@@ -72,11 +82,20 @@ class MainWindow(QMainWindow):
         self.compute_btn = QPushButton("Generate plot")
         self.compute_btn.setFixedWidth(120)
         self.compute_btn.clicked.connect(self._compute)
-        # TODO: implement _compute — build settings, call engine, pass result to results_panel.display()
 
         action_bar.addWidget(self.reset_btn)
         action_bar.addWidget(self.compute_btn)
         root.addLayout(action_bar)
+
+        self.settings_builder.set_plot_type(PlotType.SCATTER_LINE)
+
+    def _on_plot_type_changed(self, index: int):
+        plot_type = PlotType.SCATTER_LINE if index == 0 else PlotType.SURFACE_3D
+        self.settings_builder.set_plot_type(plot_type)
+        is_3d = plot_type == PlotType.SURFACE_3D
+        self.file_panel.set_mode(is_3d)
+        self.config_panel.set_mode(is_3d)
+        self.plot_panel.set_mode(is_3d)
 
     def _compute(self):
         try:
@@ -85,21 +104,22 @@ class MainWindow(QMainWindow):
                 settings, self.results_panel._result_callback, self._plot_callback
             )
         except ValueError as e:
+            traceback.print_exc()
             show_warning(self, "Error", str(e))
         except RuntimeError as e:
+            traceback.print_exc()
             show_warning(self, "Error", str(e))
         except Exception as e:
+            traceback.print_exc()
             show_error(self, "Error", str(e))
 
     def _plot_callback(self, **kwargs):
         self._plot_window.show()
         self._plot_window.raise_()
-
         self._plot_window.plot(**kwargs)
 
     def _reset(self):
-        # TODO: clear all inputs across panels and reset results_panel
-        pass
+        self.plot_type_combo.setCurrentIndex(0)
 
     def _vdivider(self) -> QFrame:
         line = QFrame()

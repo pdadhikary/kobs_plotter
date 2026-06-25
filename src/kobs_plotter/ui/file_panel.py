@@ -68,7 +68,24 @@ class FilePanel(QWidget):
         col_row.addLayout(y_col)
         layout.addLayout(col_row)
 
+        # ── Z column (3D only, hidden by default) ────────────
+        self.z_col_widget = QWidget()
+        z_col_layout = QVBoxLayout(self.z_col_widget)
+        z_col_layout.setContentsMargins(0, 0, 0, 0)
+        z_col_layout.setSpacing(4)
+        z_col_layout.addWidget(field_label("Z column"))
+        self.z_combo = QComboBox()
+        self.z_combo.currentTextChanged.connect(self.settings_builder.set_z_col)
+        z_col_layout.addWidget(self.z_combo)
+        self.z_col_widget.setVisible(False)
+        layout.addWidget(self.z_col_widget)
+
         layout.addStretch()
+
+    def set_mode(self, is_3d: bool):
+        self.z_col_widget.setVisible(is_3d)
+        if not is_3d:
+            self.settings_builder.set_z_col(None)
 
     def _browse(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -92,14 +109,15 @@ class FilePanel(QWidget):
         if not path or not sheet_name:
             return
         try:
-            # Read only the first row to get column names — no data loaded
             df_header = pd.read_excel(path, sheet_name=sheet_name, nrows=0)
             cols = list(df_header.columns)
-            for combo in (self.x_combo, self.y_combo):
+            for combo in (self.x_combo, self.y_combo, self.z_combo):
                 combo.clear()
                 combo.addItems(cols)
             if len(cols) >= 2:
                 self.y_combo.setCurrentIndex(1)
+            if len(cols) >= 3:
+                self.z_combo.setCurrentIndex(2)
             self.settings_builder.set_sheet_name(sheet_name)
         except Exception as e:
             print(f"Sheet load error: {e}")
@@ -113,3 +131,6 @@ class FilePanel(QWidget):
         self.settings_builder.set_x_col(None)
         self.y_combo.clear()
         self.settings_builder.set_y_col(None)
+        self.z_combo.clear()
+        self.settings_builder.set_z_col(None)
+        self.z_col_widget.setVisible(False)
