@@ -59,7 +59,7 @@ jobs:
             --onedir `
             --windowed `
             --name kobs-plotter `
-            --icon src/kobs_plotter/assets/icons/kobs_plotter.ico `
+            --icon src/kobs_plotter/assets/icons/logo.ico `
             --add-data "src/kobs_plotter/assets;kobs_plotter/assets" `
             src/kobs_plotter/main.py
 
