@@ -1,0 +1,123 @@
+name: Build release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build for'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            archive_ext: zip
+          - os: ubuntu-latest
+            archive_ext: tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Install PyInstaller
+        run: uv add --dev pyinstaller
+
+      - name: Get version from pyproject.toml
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(uv run python -c "import tomllib; f=open('pyproject.toml','rb'); d=tomllib.load(f); print(d['project']['version'])")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build executable (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          uv run pyinstaller `
+            --onedir `
+            --windowed `
+            --name kobs-plotter `
+            --icon src/kobs_plotter/assets/icons/kobs_plotter.ico `
+            --add-data "src/kobs_plotter/assets;kobs_plotter/assets" `
+            src/kobs_plotter/main.py
+
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1 \
+            libglib2.0-0 \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-xinerama0 \
+            libxkbcommon-x11-0
+
+      - name: Build executable (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          uv run pyinstaller \
+            --onedir \
+            --name kobs-plotter \
+            --icon src/kobs_plotter/assets/icons/kobs_plotter.png \
+            --add-data "src/kobs_plotter/assets:kobs_plotter/assets" \
+            src/kobs_plotter/main.py
+
+      - name: Archive (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $version = "${{ steps.get_version.outputs.version }}"
+          $archive = "kobs-plotter-$version-windows.zip"
+          Compress-Archive -Path dist/kobs-plotter -DestinationPath $archive
+          echo "ARCHIVE_NAME=$archive" >> $env:GITHUB_ENV
+
+      - name: Archive (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          ARCHIVE="kobs-plotter-$VERSION-linux.tar.gz"
+          tar -czf $ARCHIVE -C dist kobs-plotter
+          echo "ARCHIVE_NAME=$ARCHIVE" >> $GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARCHIVE_NAME }}
+          path: ${{ env.ARCHIVE_NAME }}
+
+      - name: Create GitHub release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: ${{ steps.get_version.outputs.version }}
+          generate_release_notes: true
+          prerelease: ${{ contains(steps.get_version.outputs.version, 'a') || contains(steps.get_version.outputs.version, 'b') || contains(steps.get_version.outputs.version, 'rc') }}
+          files: ${{ env.ARCHIVE_NAME }}
