@@ -26,3 +26,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kobs_plotter"]
+include = [
+    "src/kobs_plotter/assets/icons/*.png",
+]
