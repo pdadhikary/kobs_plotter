@@ -1,16 +1,34 @@
+"""
+Settings module for kobs-plotter.
+
+Defines the PlotType enum, the immutable PlotSettings dataclass,
+and the PlotSettingsBuilder for accumulating UI state before computation.
+"""
+
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional
 
 
 class PlotType(Enum):
+    """Enum representing the type of plot to generate."""
+
+    """2D scatter plot with a fitted trend line."""
     SCATTER_LINE = auto()
+    """3D surface plot with scatter points."""
     SURFACE_3D = auto()
 
 
 @dataclass(frozen=True)
 class PlotSettings:
-    """Immutable settings object passed to the core computation layer."""
+    """
+    immutable snapshot of all user-configured settings passed to the
+    core computation and plotting layer.
+
+    this object is constructed by plotsettingsbuilder.build() and should
+    never be mutated after creation. all fields are either required or
+    explicitly optional to make missing values visible at the type level.
+    """
 
     plot_type: PlotType
     data_path: str
@@ -37,12 +55,30 @@ class PlotSettings:
 
 class PlotSettingsBuilder:
     """
-    Accumulates settings from UI panels.
-    Mutated freely as the user updates inputs.
-    Call .build() only when Compute is clicked.
+    Accumulates plot settings from UI panels incrementally.
+
+    Each panel holds a reference to the shared builder instance and calls
+    the appropriate setter whenever a widget value changes. Once the user
+    clicks Generate Plot, MainWindow calls build() to produce an immutable
+    PlotSettings object for the computation layer.
+
+    Usage::
+
+        builder = PlotSettingsBuilder()
+        builder.set_data_path("/data/experiment.xlsx")
+        builder.set_sheet_name("Sheet1")
+        builder.set_formula("B - A * exp(-k * x)")
+        settings = builder.build()
     """
 
     def __init__(self):
+        """
+        Initialise the builder with safe defaults.
+
+        Plot theme defaults to 'ggplot', point color to 'black',
+        line color to 'red', line style to '-', and colormap to 'viridis'.
+        All other fields default to None and must be set before calling build().
+        """
         self._plot_type: PlotType
         self._data_path: Optional[str] = None
         self._sheet_name: Optional[str] = None
@@ -66,91 +102,172 @@ class PlotSettingsBuilder:
         self._colormap: Optional[str] = "viridis"
 
     def set_plot_type(self, plot_type: PlotType) -> "PlotSettingsBuilder":
+        """Set the plot type (2D scatter/line or 3D surface)."""
         self._plot_type = plot_type
         return self
 
     def set_data_path(self, data_path: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the absolute path to the Excel file."""
         self._data_path = data_path
         return self
 
     def set_sheet_name(self, sheet_name: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the name of the sheet to read from the Excel file."""
         self._sheet_name = sheet_name
         return self
 
     def set_x_col(self, col: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the column name to use as the independent variable (X axis)."""
         self._x_col = col
         return self
 
     def set_y_col(self, col: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the column name to use as the dependent variable (Y axis)."""
         self._y_col = col
         return self
 
     def set_z_col(self, col: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the column name to use as the Z axis. Required for 3D surface plots."""
         self._z_col = col
         return self
 
     def set_x_transform(self, transform: Optional[str]) -> "PlotSettingsBuilder":
+        """
+        Set a NumPy expression to transform the X series before fitting.
+
+        The expression is evaluated with x as the input array.
+
+        Example::
+
+            builder.set_x_transform("np.log(x)")
+        """
         self._x_transform = transform
         return self
 
     def set_y_transform(self, transform: Optional[str]) -> "PlotSettingsBuilder":
+        """
+        Set a NumPy expression to transform the Y series before fitting.
+
+        The expression is evaluated with y as the input array.
+
+        Example::
+
+            builder.set_y_transform("y / 1000")
+        """
         self._y_transform = transform
         return self
 
     def set_z_transform(self, transform: Optional[str]) -> "PlotSettingsBuilder":
+        """
+        Set a NumPy expression to transform the Z series before fitting.
+
+        Only relevant for 3D surface plots. The expression is evaluated
+        with z as the input array.
+        """
         self._z_transform = transform
         return self
 
     def set_params(self, params: Optional[list[str]]) -> "PlotSettingsBuilder":
+        """
+        Set the list of parameter symbols for the model formula.
+
+        These are the symbols that curve_fit will optimise. Should exclude
+        the independent variable symbols (x for 2D, x and y for 3D).
+
+        Example::
+
+            builder.set_params(["A", "B", "k"])
+        """
         self._params = params
         return self
 
     def set_formula(self, formula: Optional[str]) -> "PlotSettingsBuilder":
+        """
+        Set the model formula as a mathematical expression string.
+
+        The expression is parsed by SymPy and compiled into a callable
+        via lambdify. Use standard mathematical notation — do not use
+        NumPy prefixes (e.g. use exp not np.exp).
+
+        Example::
+
+            builder.set_formula("B - A * exp(-k * x)")
+        """
         self._formula = formula
         return self
 
     def set_p0(self, p0: Optional[list[str]]) -> "PlotSettingsBuilder":
+        """
+        Set the initial parameter guesses for curve_fit.
+
+        Each element corresponds to the parameter at the same index in params.
+        Values are strings that may be plain numbers or NumPy expressions
+        evaluated against the data at fit time.
+
+        Example::
+
+            builder.set_p0(["np.max(y)", "np.min(y)", "1.0"])
+        """
         self._p0 = p0
         return self
 
     def set_plot_theme(self, theme: str) -> "PlotSettingsBuilder":
+        """Set the matplotlib style theme to apply to the plot."""
         self._plot_theme = theme
         return self
 
     def set_title(self, title: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the plot title. Supports LaTeX expressions wrapped in $...$."""
         self._title = title
         return self
 
     def set_x_label(self, label: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the X axis label. Supports LaTeX expressions wrapped in $...$."""
         self._x_label = label
         return self
 
     def set_y_label(self, label: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the Y axis label. Supports LaTeX expressions wrapped in $...$."""
         self._y_label = label
         return self
 
     def set_z_label(self, label: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the Z axis label. Only used for 3D surface plots. Supports LaTeX."""
         self._z_label = label
         return self
 
     def set_point_color(self, color: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the color of scatter plot data points. Accepts any matplotlib color string or hex value."""
         self._point_color = color
         return self
 
     def set_line_color(self, color: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the color of the fitted trend line. Accepts any matplotlib color string or hex value."""
         self._line_color = color
         return self
 
     def set_line_style(self, style: Optional[str]) -> "PlotSettingsBuilder":
+        """
+        Set the line style of the fitted trend line.
+
+        Accepted values: '-' (solid), '--' (dashed), '-.' (dash-dot), ':' (dotted).
+        """
         self._line_style = style
         return self
 
     def set_colormap(self, colormap: Optional[str]) -> "PlotSettingsBuilder":
+        """Set the colormap for 3D surface plots. Accepts any valid matplotlib colormap name."""
         self._colormap = colormap
         return self
 
     def is_ready(self) -> bool:
-        """Check if minimum required fields are set."""
+        """
+        Check whether all required fields are set for the current plot type.
+
+        Returns True if the builder has enough information to call build().
+        The required fields differ between SCATTER_LINE and SURFACE_3D —
+        the latter additionally requires z_col to be set.
+        """
         if self._plot_type == PlotType.SCATTER_LINE:
             return all(
                 [
@@ -180,7 +297,12 @@ class PlotSettingsBuilder:
             return False
 
     def missing_fields(self) -> list[str]:
-        """Returns list of missing required fields for user feedback."""
+        """
+        Return a list of human-readable names of required fields that are not yet set.
+
+        Used to populate the warning dialog shown to the user when they click
+        Generate Plot before filling in all required inputs.
+        """
         missing = []
         if self._data_path is None:
             missing.append("Data Path")
@@ -199,6 +321,18 @@ class PlotSettingsBuilder:
         return missing
 
     def build(self) -> PlotSettings:
+        """
+        Construct and return an immutable PlotSettings object.
+
+        Raises ValueError if any required fields are missing, with a message
+        listing the missing field names from missing_fields().
+
+        Returns:
+            PlotSettings: immutable snapshot of the current builder state.
+
+        Raises:
+            ValueError: if is_ready() returns False.
+        """
         if not self.is_ready():
             raise ValueError(f"Missing fields: {', '.join(self.missing_fields())}")
 

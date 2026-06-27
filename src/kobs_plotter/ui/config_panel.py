@@ -1,3 +1,12 @@
+"""
+Configuration panel UI component for kobs-plotter.
+
+Provides controls for data transformation expressions, model selection
+from predefined templates, and custom model definition including parameter
+symbols and formula input. Updates the shared PlotSettingsBuilder as the
+user interacts with the widgets.
+"""
+
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QComboBox,
@@ -37,6 +46,7 @@ PREDEFINED_MODELS = {
         "params": ["L", "a", "k"],
     },
 }
+"""Predefined 2D curve fitting models keyed by display name."""
 
 PREDEFINED_MODELS_3D = {
     "Plane": {
@@ -64,9 +74,34 @@ PREDEFINED_MODELS_3D = {
         "params": ["A", "B", "C"],
     },
 }
+"""Predefined 3D surface fitting models keyed by display name."""
 
 
 class ConfigPanel(QWidget):
+    """
+    Centre-left panel handling data transformation and model configuration.
+
+    Provides three sections:
+
+    - **Data transformation** — optional NumPy expressions to preprocess
+      the X, Y, and Z (3D only) series before fitting. All axis arrays
+      and numpy are available in the expression scope.
+
+    - **Model selection** — dropdown of predefined 2D or 3D models. The
+      available models switch automatically when the plot type changes.
+      Selecting a predefined model populates the parameters and formula
+      inputs automatically.
+
+    - **Parameter / formula box** — displays the parameter symbols and
+      formula for the selected model. In Custom mode both fields are
+      editable. Parameters may include initial value hints using '='
+      syntax e.g. 'A=np.max(y), B, k'.
+
+    Args:
+        settings_builder: shared builder instance updated as the user
+                          interacts with the panel widgets.
+    """
+
     def __init__(self, settings_builder: PlotSettingsBuilder):
         super().__init__()
         self.setMaximumWidth(320)
@@ -161,14 +196,30 @@ class ConfigPanel(QWidget):
         # Populate with 2D models by default
         self._populate_model_combo()
 
-    def set_mode(self, is_3d: bool):
+    def set_mode(self, is_3d: bool) -> None:
+        """
+        Switch the panel between 2D and 3D mode.
+
+        Shows or hides the Z transform input, updates the formula prefix
+        label, and repopulates the model dropdown with the appropriate
+        set of predefined models.
+
+        Args:
+            is_3d: True to enable 3D mode, False for 2D.
+        """
         self.is_3d = is_3d
         self.z_transform_widget.setVisible(is_3d)
         self.formula_prefix.setText("z =" if is_3d else "y =")
         self._populate_model_combo()
 
-    def _populate_model_combo(self):
-        """Populate model combo with 2D or 3D models based on current mode."""
+    def _populate_model_combo(self) -> None:
+        """
+        Repopulate the model dropdown for the current plot type.
+
+        Blocks signals during repopulation to prevent _on_model_changed
+        from firing with stale model names while the combo is being rebuilt.
+        Always appends a Custom option at the end.
+        """
         models = PREDEFINED_MODELS_3D if self.is_3d else PREDEFINED_MODELS
         self.model_combo.blockSignals(True)
         self.model_combo.clear()
@@ -176,7 +227,22 @@ class ConfigPanel(QWidget):
         self.model_combo.blockSignals(False)
         self._on_model_changed(self.model_combo.currentText())
 
-    def _on_params_changed(self, param_text: str):
+    def _on_params_changed(self, param_text: str) -> None:
+        """
+        Parse the parameters input and push params and p0 to the builder.
+
+        Supports optional initial value hints using '=' syntax. Parameters
+        without an initial value default to 1.0.
+
+        Example input::
+
+            A=np.max(y), B=np.min(y), k
+
+        Results in params=['A', 'B', 'k'] and p0=['np.max(y)', 'np.min(y)', '1.0'].
+
+        Args:
+            param_text: raw text from the parameters QLineEdit.
+        """
         tokens = param_text.split(",")
         params = []
         p0 = []
@@ -194,7 +260,18 @@ class ConfigPanel(QWidget):
         self.settings_builder.set_params(params)
         self.settings_builder.set_p0(p0)
 
-    def _on_model_changed(self, name: str):
+    def _on_model_changed(self, name: str) -> None:
+        """
+        Handle model dropdown selection change.
+
+        For predefined models, populates the parameters and formula inputs
+        automatically and pushes the values to the builder. For Custom,
+        clears both inputs and sets builder fields to None so the user
+        can define their own model from scratch.
+
+        Args:
+            name: display name of the selected model, or 'Custom'.
+        """
         models = PREDEFINED_MODELS_3D if self.is_3d else PREDEFINED_MODELS
 
         if name == "Custom":
@@ -210,7 +287,15 @@ class ConfigPanel(QWidget):
             self.formula_input.setText(expr)
             self.settings_builder.set_formula(expr)
 
-    def on_reset(self):
+    def on_reset(self) -> None:
+        """
+        Reset all panel inputs to their default empty state.
+
+        Clears all transform inputs, params, and formula fields,
+        resets the 3D mode flag, restores the formula prefix to 'y =',
+        hides the Z transform widget, and repopulates the model combo
+        with 2D models.
+        """
         self.x_transform.setText("")
         self.y_transform.setText("")
         self.z_transform.setText("")

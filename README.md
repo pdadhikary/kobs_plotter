@@ -1,6 +1,11 @@
+<p align="center">
+  <img width="400 px" src="./assets/images/kobs_plotter_banner.png" />
+</p>
+
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [Kobs-Plotter](#kobs-plotter)
+  - [System Architecture](#system-architecture)
   - [Installation](#installation)
     - [Recommended — install from GitHub](#recommended-install-from-github)
     - [Manual — install from source](#manual-install-from-source)
@@ -26,6 +31,12 @@
 A general purpose curve fitting tool for tabular data. Load your Excel file,
 select a model, and get fitted parameters with goodness-of-fit statistics — no
 coding required.
+
+![kobs-plotter demo image](./assets/images/kobs-plotter-demo.jpg)
+
+<!-- TOC --><a name="system-architecture"></a>
+
+## System Architecture
 
 ![System Architecture for Kobs-Plotter](./assets/diagrams/architecture_diagram.png)
 

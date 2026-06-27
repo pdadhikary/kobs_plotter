@@ -1,3 +1,15 @@
+"""
+Plot panel UI component for kobs-plotter.
+
+Provides controls for plot theme selection, axis labels, scatter point
+styling, and trend line or surface colormap styling. Updates the shared
+PlotSettingsBuilder as the user interacts with the widgets.
+
+In 2D mode the trend line style section is visible and the surface
+colormap section is hidden. In 3D mode this is reversed, and an
+additional Z axis label input is shown.
+"""
+
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QComboBox,
@@ -18,7 +30,11 @@ PLOT_THEMES = [
     "seaborn-v0_8-poster",
     "seaborn-v0_8-darkgrid",
 ]
+"""Available matplotlib style themes shown in the plot theme dropdown."""
+
 LINESTYLES = ["-", "--", "-.", ":"]
+"""Available matplotlib line style strings for the trend line."""
+
 COLORMAPS = [
     "viridis",
     "plasma",
@@ -31,6 +47,8 @@ COLORMAPS = [
     "turbo",
     "jet",
 ]
+"""Available matplotlib colormap names for 3D surface plots."""
+
 DEFAULT_SCATTER_COLOR = "black"
 DEFAULT_LINE_COLOR = "red"
 DEFAULT_LINE_STYLE_INDEX = 0
@@ -38,6 +56,26 @@ DEFAULT_COLORMAP_INDEX = 0
 
 
 class PlotPanel(QWidget):
+    """
+    Centre-right panel handling plot appearance and labelling.
+
+    Provides four sections:
+
+    - **Plot theme** — matplotlib style theme applied to the plot window.
+    - **Plot labels** — title and axis label inputs supporting LaTeX via $...$.
+    - **Scatter style** — point color for observed data scatter points.
+    - **Trend line style (2D only)** — line color and style for the fitted curve.
+    - **Surface style (3D only)** — colormap for the fitted surface mesh.
+
+    The trend line and surface sections are mutually exclusive and toggle
+    visibility when set_mode() is called. The Z axis label input is also
+    hidden in 2D mode.
+
+    Args:
+        settings_builder: shared builder instance updated as the user
+                          interacts with the panel widgets.
+    """
+
     def __init__(self, settings_builder: PlotSettingsBuilder):
         super().__init__()
         self.setMaximumWidth(320)
@@ -152,14 +190,31 @@ class PlotPanel(QWidget):
 
         layout.addStretch()
 
-    def set_mode(self, is_3d: bool):
+    def set_mode(self, is_3d: bool) -> None:
+        """
+        Switch the panel between 2D and 3D mode.
+
+        Shows the Z axis label input and surface colormap section in 3D mode.
+        Hides the trend line style section in 3D mode and restores it in 2D.
+        Resets the colormap to its default when switching modes.
+
+        Args:
+            is_3d: True to enable 3D mode, False for 2D.
+        """
         self.is_3d = is_3d
         self.z_label_widget.setVisible(is_3d)
         self.line_style_widget.setVisible(not is_3d)
         self.colormap_widget.setVisible(is_3d)
         self.colormap_combo.setCurrentIndex(DEFAULT_COLORMAP_INDEX)
 
-    def on_reset(self):
+    def on_reset(self) -> None:
+        """
+        Reset all panel inputs to their default state.
+
+        Clears all label inputs, resets theme and style selectors to their
+        defaults, restores default colors, resets the 3D mode flag, and
+        restores 2D visibility (trend line visible, colormap and Z label hidden).
+        """
         self.title_input.setText("")
         self.x_label_input.setText("")
         self.y_label_input.setText("")

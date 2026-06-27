@@ -1,3 +1,11 @@
+"""
+Plotting preparation module for kobs-plotter.
+
+Handles generation of fitted curves and surfaces, confidence band
+computation, result string formatting, and dispatching to the
+plot callback provided by the UI layer.
+"""
+
 from typing import Callable
 
 import numpy as np
@@ -9,8 +17,23 @@ from kobs_plotter.core.settings import PlotSettings, PlotType
 
 
 def _generate_surface(
-    data: PlotDataSeries, result: FitResult
+    data: PlotDataSeries,
+    result: FitResult,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Generate a meshgrid surface from the fitted 3D model.
+
+    Creates a uniform 100x100 grid spanning the observed x and y ranges,
+    evaluates the fitted model over the grid, and returns the mesh arrays
+    for use with matplotlib's plot_surface.
+
+    Args:
+        data:   loaded data series providing x and y range bounds.
+        result: fit result containing the compiled model and optimal parameters.
+
+    Returns:
+        Tuple of (x_mesh, y_mesh, z_mesh) each of shape (100, 100).
+    """
     x_range = np.linspace(data.x.min(), data.x.max(), 100)
     y_range = np.linspace(data.y.min(), data.y.max(), 100)
 
@@ -20,14 +43,48 @@ def _generate_surface(
     return x_fit, y_fit, z_fit
 
 
-def confidence_band(x, y, x_fit, model, popt, pcov, confidence=0.99):
+def confidence_band(
+    x: np.ndarray,
+    y: np.ndarray,
+    x_fit: np.ndarray,
+    model: Callable,
+    popt: np.ndarray,
+    pcov: np.ndarray,
+    confidence: float = 0.99,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Compute a pointwise confidence band around a 2D fitted curve.
+
+    Uses the full parameter covariance matrix from curve_fit and a
+    numerical Jacobian to compute the standard error of the model
+    prediction at each point in x_fit. Does not assume uniform variance
+    (heteroscedasticity safe).
+
+    The band represents where the true underlying curve is expected to
+    lie with the given confidence level — it is NOT a prediction interval
+    for individual observations.
+
+    Args:
+        x:          observed independent variable values used for fitting.
+        y:          observed dependent variable values used for fitting.
+        x_fit:      points at which to evaluate the confidence band.
+        model:      fitted model callable with signature f(x, *params).
+        popt:       optimal parameter values from curve_fit.
+        pcov:       parameter covariance matrix from curve_fit.
+        confidence: confidence level between 0 and 1, default 0.99 (99%).
+
+    Returns:
+        Tuple of (lower, upper) confidence band arrays, each the same
+        length as x_fit.
+    """
     n = len(x)
     p = len(popt)
     dof = n - p
 
     t_val = stats.t.ppf((1 + confidence) / 2, dof)
 
-    # Compute Jacobian — one row per x_fit point, one col per parameter
+    # Numerical Jacobian — central difference per parameter at each x_fit point
+    # Shape: (n_points, n_params)
     jacobian = np.zeros((len(x_fit), p))
     for i, xi in enumerate(x_fit):
         for j in range(p):
@@ -40,9 +97,10 @@ def confidence_band(x, y, x_fit, model, popt, pcov, confidence=0.99):
                 2 * eps
             )
 
-    # Variance at each point: diagonal of J @ pcov @ J^T
+    # Pointwise variance: diagonal of J @ pcov @ J^T
+    # Clipped to zero to guard against tiny negatives from floating point error
     var_fit = np.einsum("ij,jk,ik->i", jacobian, pcov, jacobian)
-    se_fit = np.sqrt(np.maximum(var_fit, 0))  # clip negatives from numerical error
+    se_fit = np.sqrt(np.maximum(var_fit, 0))
 
     y_fit = model(x_fit, *popt)
     lower = y_fit - t_val * se_fit
@@ -51,35 +109,75 @@ def confidence_band(x, y, x_fit, model, popt, pcov, confidence=0.99):
     return lower, upper
 
 
+def _format_result_string(
+    settings: PlotSettings,
+    result: FitResult,
+) -> str:
+    """
+    Format the fit result into a multi-line string for display on the plot.
+
+    Includes the fitted formula in LaTeX notation, optimal parameter values
+    with standard errors, and goodness-of-fit metrics.
+
+    Args:
+        settings: plot settings providing parameter names and plot type.
+        result:   fit result providing popt, pcov, and goodness-of-fit values.
+
+    Returns:
+        Newline-joined string ready for use with matplotlib's figure.text().
+    """
+    perr = np.sqrt(np.diag(result.pcov))
+
+    dep_var = "z" if settings.plot_type == PlotType.SURFACE_3D else "y"
+    parameter_lines = [
+        f"{param}={opt:.4f} $\\pm$ {err:.3f}"
+        for param, opt, err in zip(settings.params, result.popt, perr)
+    ]
+    gof_lines = [
+        f"{metric}={value:.4f}"
+        for metric, value in zip(
+            ["$R^2$", "Adj. $R^2$", "RMSE", "MAE", "SSE"],
+            [result.r2, result.r2_adj, result.rmse, result.mae, result.sse],
+        )
+    ]
+
+    lines = [
+        "---Formula---",
+        f"${dep_var}={result.formula_latex}$",
+        "",
+        "---Result---",
+        *parameter_lines,
+        "",
+        "---Goodness of Fit---",
+        *gof_lines,
+    ]
+
+    return "\n".join(lines)
+
+
 def plot(
     data: PlotDataSeries,
     result: FitResult,
     settings: PlotSettings,
     plot_callback: Callable,
-):
-    perr = np.sqrt(np.diag(result.pcov))
-    parameter_string = []
-    gof = []
-    for param, opt, err in zip(settings.params, result.popt, perr):
-        parameter_string.append(f"{param}={opt:.4f} $\\pm$ {err:.3f}")
-    gof_metrics = ["$R^2$", "Adj. $R^2$", "RMSE", "MAE", "SSE"]
-    for metric, value in zip(
-        gof_metrics, [result.r2, result.r2_adj, result.rmse, result.mae, result.sse]
-    ):
-        gof.append(f"{metric}={value:.4f}")
+) -> None:
+    """
+    Prepare plot data and dispatch to the UI plot callback.
 
-    result_string = [
-        "---Formula---",
-        f"$z={result.formula_latex}$"
-        if settings.plot_type == PlotType.SURFACE_3D
-        else f"$y={result.formula_latex}$",
-        "",
-        "---Result---",
-        *parameter_string,
-        "",
-        "---Goodness of Fit---",
-        *gof,
-    ]
+    For 2D plots generates a smooth fitted curve and computes a confidence
+    band. For 3D plots generates a surface mesh over the observed x/y range.
+    Formats the result string and passes everything to the plot callback
+    provided by the UI layer.
+
+    Args:
+        data:          loaded and transformed data series.
+        result:        fit result from the modelling layer.
+        settings:      immutable plot settings.
+        plot_callback: callable provided by the UI that accepts keyword
+                       arguments and renders the plot. Signature differs
+                       between 2D and 3D — see PlotWindow.plot().
+    """
+    result_string = _format_result_string(settings, result)
 
     if settings.plot_type == PlotType.SURFACE_3D:
         x_fit, y_fit, z_fit = _generate_surface(data, result)
@@ -90,23 +188,21 @@ def plot(
             x_fit=x_fit,
             y_fit=y_fit,
             z_fit=z_fit,
-            result_string="\n".join(result_string),
+            result_string=result_string,
             settings=settings,
         )
     else:
         x_fit = np.linspace(np.min(data.x), np.max(data.x), 1_000)
         y_fit = result.model(x_fit, *result.popt)
-
         conf_lower, conf_upper = confidence_band(
             data.x, data.y, x_fit, result.model, result.popt, result.pcov
         )
-
         plot_callback(
             x=data.x,
             y=data.y,
             x_fit=x_fit,
             y_fit=y_fit,
-            result_string="\n".join(result_string),
+            result_string=result_string,
             settings=settings,
             conf_lower=conf_lower,
             conf_upper=conf_upper,

@@ -1,3 +1,11 @@
+"""
+Main application window for kobs-plotter.
+
+Composes all UI panels into a single window, manages the shared
+PlotSettingsBuilder, and coordinates communication between the UI
+layer and the core computation layer via callbacks.
+"""
+
 import traceback
 from typing import Callable
 
@@ -22,6 +30,25 @@ from kobs_plotter.ui.ui_helpers import show_error, show_warning
 
 
 class MainWindow(QMainWindow):
+    """
+    Root window of the kobs-plotter application.
+
+    Hosts four side-by-side panels (file, config, plot, results) and an
+    action bar with plot type selection, reset, and generate plot controls.
+
+    The window owns a single PlotSettingsBuilder instance which is shared
+    across all panels. Each panel updates the builder directly as the user
+    interacts with its widgets. When the user clicks Generate Plot, the
+    builder is finalised into an immutable PlotSettings object and passed
+    to the compute callable provided at construction time.
+
+    Args:
+        compute: callable provided by main() that orchestrates data loading,
+                 fitting, and plotting. Signature::
+
+                     compute(settings, result_callback, plot_callback)
+    """
+
     def __init__(self, compute: Callable):
         super().__init__()
         self.setWindowTitle("K Observes Plotter")
@@ -89,7 +116,17 @@ class MainWindow(QMainWindow):
 
         self.settings_builder.set_plot_type(PlotType.SCATTER_LINE)
 
-    def _on_plot_type_changed(self, index: int):
+    def _on_plot_type_changed(self, index: int) -> None:
+        """
+        Handle plot type combo box selection change.
+
+        Propagates the new plot type to the settings builder and updates
+        all panels that have mode-dependent UI elements (file panel Z column,
+        config panel Z transform and 3D models, plot panel colormap vs line style).
+
+        Args:
+            index: combo box index — 0 for Scatter/Line, 1 for Surface 3D.
+        """
         plot_type = PlotType.SCATTER_LINE if index == 0 else PlotType.SURFACE_3D
         self.settings_builder.set_plot_type(plot_type)
         is_3d = plot_type == PlotType.SURFACE_3D
@@ -97,7 +134,15 @@ class MainWindow(QMainWindow):
         self.config_panel.set_mode(is_3d)
         self.plot_panel.set_mode(is_3d)
 
-    def _compute(self):
+    def _compute(self) -> None:
+        """
+        Handle Generate Plot button click.
+
+        Builds an immutable PlotSettings object from the current builder
+        state and passes it to the compute callable along with the result
+        and plot callbacks. Displays a warning dialog for validation errors
+        and an error dialog for unexpected failures.
+        """
         try:
             settings = self.settings_builder.build()
             self.compute(
@@ -113,21 +158,37 @@ class MainWindow(QMainWindow):
             traceback.print_exc()
             show_error(self, "Error", str(e))
 
-    def _plot_callback(self, **kwargs):
+    def _plot_callback(self, **kwargs) -> None:
+        """
+        Callback passed to the compute layer to trigger plot rendering.
+
+        Ensures the plot window is visible and raised to the front before
+        delegating all keyword arguments to PlotWindow.plot(). Called after
+        a successful fit by the plotting module.
+        """
         self._plot_window.show()
         self._plot_window.raise_()
         self._plot_window.plot(**kwargs)
 
-    def _reset(self):
+    def _reset(self) -> None:
+        """
+        Handle Reset button click.
+
+        Resets the plot type combo to its default (Scatter / Line) and
+        resets the settings builder. Individual panel resets are connected
+        directly to the reset button signal in __init__.
+        """
         self.plot_type_combo.setCurrentIndex(0)
 
     def _vdivider(self) -> QFrame:
+        """Create and return a vertical divider line for use between panels."""
         line = QFrame()
         line.setFrameShape(QFrame.Shape.VLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
         return line
 
     def _hdivider(self) -> QFrame:
+        """Create and return a horizontal divider line for use between layout rows."""
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)

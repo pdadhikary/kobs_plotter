@@ -5,65 +5,64 @@ import numpy as np
 import pandas as pd
 
 from kobs_plotter.core.settings import PlotSettings, PlotType
+from kobs_plotter.core.transforms import apply_transform
 
 
 @dataclass(frozen=True)
 class PlotDataSeries:
+    """
+    Immutable container for the raw (and optionally transformed)
+    data series passed to the fitting and plotting layer.
+    """
+
     x: np.ndarray
     y: np.ndarray
     z: Optional[np.ndarray]
 
 
 def load_data(settings: PlotSettings) -> PlotDataSeries:
-    df = pd.read_excel(settings.data_path, sheet_name=settings.sheet_name)
-    x = np.array(df[settings.x_col])
-    y = np.array(df[settings.y_col])
+    """
+    Load data from the Excel file specified in settings, apply any
+    user-defined transforms, and return a PlotDataSeries.
+
+    The Excel file is always read fresh from disk so any edits the
+    user makes between compute runs are picked up automatically.
+
+    Args:
+        settings: immutable PlotSettings object from the builder.
+
+    Returns:
+        PlotDataSeries containing the (transformed) x, y, and optional z arrays.
+
+    Raises:
+        FileNotFoundError: if the Excel file does not exist.
+        ValueError: if a transform expression is invalid or does not
+                    return a numpy array.
+    """
+    try:
+        df = pd.read_excel(settings.data_path, sheet_name=settings.sheet_name)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {settings.data_path}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to read Excel file: {e}")
+
+    x = np.array(df[settings.x_col], dtype=float)
+    y = np.array(df[settings.y_col], dtype=float)
     z = None
 
     if settings.plot_type == PlotType.SURFACE_3D:
-        z = np.array(df[settings.z_col])
+        z = np.array(df[settings.z_col], dtype=float)
 
-    x_prime = None
-    y_prime = None
-    z_prime = None
+    namespace = {"x": x, "y": y, "z": z, "np": np}
 
-    try:
-        if settings.x_transform and settings.x_transform.strip():
-            x_prime = eval(settings.x_transform)
-    except Exception:
-        raise ValueError(f'Invalid transform: "{settings.x_transform}"')
+    x_prime = apply_transform(settings.x_transform, namespace, "x") or x
+    y_prime = apply_transform(settings.y_transform, namespace, "y") or y
 
-    if isinstance(x_prime, np.ndarray):
-        x = x_prime
-    elif settings.x_transform:
-        raise ValueError(
-            f'Transform "{settings.x_transform}" did not return a valid numpy array.'
-        )
-
-    try:
-        if settings.y_transform and settings.y_transform.strip():
-            y_prime = eval(settings.y_transform)
-    except Exception:
-        raise ValueError(f'Invalid tansform: "{settings.y_transform}"')
-
-    if isinstance(y_prime, np.ndarray):
-        y = y_prime
-    elif settings.y_transform:
-        raise ValueError(
-            f'Transform "{settings.y_transform}" did not return a valid numpy array.'
-        )
-
-    try:
-        if settings.z_transform and settings.z_transform.strip():
-            z_prime = eval(settings.z_transform)
-    except Exception:
-        raise ValueError(f'Invalid transform: "{settings.z_transform}"')
-
-    if isinstance(z_prime, np.ndarray):
+    if settings.plot_type == PlotType.SURFACE_3D:
+        z_prime = apply_transform(settings.z_transform, namespace, "z") or z
         z = z_prime
-    elif settings.z_transform:
-        raise ValueError(
-            f'Transform "{settings.z_transform}" did not return a valid numpy array.'
-        )
+
+    x = x_prime
+    y = y_prime
 
     return PlotDataSeries(x, y, z)
