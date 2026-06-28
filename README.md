@@ -28,9 +28,9 @@
 
 # Kobs-Plotter
 
-A general purpose curve fitting tool for tabular data. Load your Excel file,
-select a model, and get fitted parameters with goodness-of-fit statistics — no
-coding required.
+A desktop application for scientific nonlinear curve fitting and publication-ready
+visualization. Load your Excel file, select a model, and get fitted Parameters
+with goodness-of-fit statistics — no coding required.
 
 ![kobs-plotter demo image](./assets/images/kobs-plotter-demo.jpg)
 

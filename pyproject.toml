@@ -1,7 +1,7 @@
 [project]
 name = "kobs-plotter"
 version = "0.3.0"
-description = "A desktop application for nonlinear curve fitting of tabular data with parameter estimation and goodness-of-fit statistics."
+description = "A desktop application for scientific curve fitting and publication-ready visualization"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
