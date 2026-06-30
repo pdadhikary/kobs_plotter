@@ -7,15 +7,23 @@ and line plots with confidence bands, and 3D surface plots with
 projected contours.
 """
 
+from enum import Enum, auto
 from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.stats as stats
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 
 from kobs_plotter.core.settings import PlotSettings, PlotType
+
+
+class PlotDiagnosticType(Enum):
+    PLOT = auto()
+    RESIDUAL = auto()
+    QQ_PLOT = auto()
 
 
 class PlotWindow(QMainWindow):
@@ -43,9 +51,9 @@ class PlotWindow(QMainWindow):
                 window stays in front of the main window on most platforms.
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, window_title: str = "Plot"):
         super().__init__(parent)
-        self.setWindowTitle("Plot")
+        self.setWindowTitle(window_title)
         self.setMinimumSize(800, 600)
 
         central = QWidget()
@@ -68,11 +76,13 @@ class PlotWindow(QMainWindow):
         x_fit: np.ndarray,
         y_fit: np.ndarray,
         result_string: str,
+        residuals: np.ndarray,
         settings: PlotSettings,
         z: Optional[np.ndarray] = None,
         z_fit: Optional[np.ndarray] = None,
         conf_lower: Optional[np.ndarray] = None,
         conf_upper: Optional[np.ndarray] = None,
+        diagnostic: PlotDiagnosticType = PlotDiagnosticType.PLOT,
     ) -> None:
         """
         Clear the figure and render a new plot from the provided data.
@@ -96,14 +106,81 @@ class PlotWindow(QMainWindow):
         with plt.style.context(settings.plot_theme):
             self._clear()
 
-            if settings.plot_type == PlotType.SURFACE_3D:
-                self._plot_3d(x, y, z, x_fit, y_fit, z_fit, result_string, settings)
-            else:
-                self._plot_2d(
-                    x, y, x_fit, y_fit, conf_lower, conf_upper, result_string, settings
-                )
+            match settings.plot_type:
+                case PlotType.SURFACE_3D:
+                    match diagnostic:
+                        case PlotDiagnosticType.PLOT:
+                            self._plot_3d(
+                                x, y, z, x_fit, y_fit, z_fit, result_string, settings
+                            )
+                        case PlotDiagnosticType.RESIDUAL:
+                            self._plot_residual_3d(x, y, residuals, settings)
+                        case PlotDiagnosticType.QQ_PLOT:
+                            self._plot_qq(residuals, settings)
+                case PlotType.SCATTER_LINE:
+                    match diagnostic:
+                        case PlotDiagnosticType.PLOT:
+                            self._plot_2d(
+                                x,
+                                y,
+                                x_fit,
+                                y_fit,
+                                conf_lower,
+                                conf_upper,
+                                result_string,
+                                settings,
+                            )
+                        case PlotDiagnosticType.RESIDUAL:
+                            self._plot_residual_2d(x, residuals, settings)
+                        case PlotDiagnosticType.QQ_PLOT:
+                            self._plot_qq(residuals, settings)
 
             self.canvas.draw()
+
+    def _plot_qq(self, residuals: np.ndarray, settings: PlotSettings):
+        ax = self.figure.add_subplot(111)
+        stats.probplot(residuals, dist="norm", plot=ax)
+
+        ax.set_title(settings.title or "")
+
+    def _plot_residual_2d(
+        self, x: np.ndarray, residuals: np.ndarray, settings: PlotSettings
+    ):
+        ax = self.figure.add_subplot(111)
+        ax.scatter(x, residuals, color=settings.point_color, zorder=5)
+        ax.axhline(
+            y=0,
+            label="Baseline",
+            color=settings.line_color,
+            linestyle=settings.line_style,
+        )
+
+        ax.set_title(settings.title or "")
+        ax.set_xlabel(settings.x_label or "")
+        ax.set_ylabel("Residuals")
+
+        self.figure.legend()
+
+    def _plot_residual_3d(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        residuals: np.ndarray,
+        settings: PlotSettings,
+    ):
+        ax = self.figure.add_subplot(111, projection="3d")
+        ax.scatter(x, y, residuals, color=settings.point_color, zorder=5)
+
+        xlim, ylim = ax.get_xlim(), ax.get_ylim()
+        xx, yy = np.meshgrid(xlim, ylim)
+        zz = np.zeros_like(xx)
+
+        ax.plot_surface(xx, yy, zz, alpha=0.15, color="gray")
+
+        ax.set_title(settings.title or "")
+        ax.set_xlabel(settings.x_label or "")
+        ax.set_ylabel(settings.y_label or "")
+        ax.set_zlabel("Residuals")
 
     def _plot_2d(
         self,

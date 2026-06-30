@@ -11,6 +11,7 @@ from kobs_plotter.core.modelling import fit
 from kobs_plotter.core.plotting import plot
 from kobs_plotter.core.settings import PlotSettings
 from kobs_plotter.ui.main_window import MainWindow
+from kobs_plotter.ui.plot_window import PlotDiagnosticType
 
 
 def main():
@@ -30,11 +31,16 @@ def main():
     sys.exit(app.exec())
 
 
-def compute(settings: PlotSettings, result_callback: Callable, plot_callback: Callable):
+def compute(
+    settings: PlotSettings,
+    result_callback: Callable,
+    plot_callback: Callable,
+    diagnostic: PlotDiagnosticType,
+):
     data = load_data(settings)
     result = fit(data, settings)
     result_callback(result, settings.params)
-    plot(data, result, settings, plot_callback)
+    plot(data, result, settings, plot_callback, diagnostic)
 
 
 if __name__ == "__main__":

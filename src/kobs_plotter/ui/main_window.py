@@ -24,7 +24,7 @@ from kobs_plotter.core.settings import PlotSettingsBuilder, PlotType
 from kobs_plotter.ui.config_panel import ConfigPanel
 from kobs_plotter.ui.file_panel import FilePanel
 from kobs_plotter.ui.plot_panel import PlotPanel
-from kobs_plotter.ui.plot_window import PlotWindow
+from kobs_plotter.ui.plot_window import PlotDiagnosticType, PlotWindow
 from kobs_plotter.ui.results_panel import ResultsPanel
 from kobs_plotter.ui.ui_helpers import show_error, show_warning
 
@@ -54,7 +54,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("K Observes Plotter")
         self.setMinimumSize(1600, 800)
         self.compute = compute
-        self._plot_window = PlotWindow(parent=self)
+        self._plot_window = PlotWindow(parent=self, window_title="Plot")
+        self._residual_window = PlotWindow(parent=self, window_title="Residual Plot")
+        self._qq_window = PlotWindow(parent=self, window_title="Q-Q Plot")
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -105,12 +107,28 @@ class MainWindow(QMainWindow):
         self.reset_btn.clicked.connect(self.plot_panel.on_reset)
         self.reset_btn.clicked.connect(self.results_panel.on_reset)
         self.reset_btn.clicked.connect(self._plot_window.on_reset)
+        self.reset_btn.clicked.connect(self._residual_window.on_reset)
+        self.reset_btn.clicked.connect(self._qq_window.on_reset)
+
+        self.qq_btn = QPushButton("Show QQ Plot")
+        self.qq_btn.setFixedWidth(150)
+        self.qq_btn.clicked.connect(lambda _: self._compute(PlotDiagnosticType.QQ_PLOT))
+
+        self.residual_btn = QPushButton("Show Residual")
+        self.residual_btn.setFixedWidth(150)
+        self.residual_btn.clicked.connect(
+            lambda _: self._compute(PlotDiagnosticType.RESIDUAL)
+        )
 
         self.compute_btn = QPushButton("Generate plot")
-        self.compute_btn.setFixedWidth(120)
-        self.compute_btn.clicked.connect(self._compute)
+        self.compute_btn.setFixedWidth(130)
+        self.compute_btn.clicked.connect(
+            lambda _: self._compute(PlotDiagnosticType.PLOT)
+        )
 
         action_bar.addWidget(self.reset_btn)
+        action_bar.addWidget(self.qq_btn)
+        action_bar.addWidget(self.residual_btn)
         action_bar.addWidget(self.compute_btn)
         root.addLayout(action_bar)
 
@@ -134,7 +152,7 @@ class MainWindow(QMainWindow):
         self.config_panel.set_mode(is_3d)
         self.plot_panel.set_mode(is_3d)
 
-    def _compute(self) -> None:
+    def _compute(self, diagnostic: PlotDiagnosticType) -> None:
         """
         Handle Generate Plot button click.
 
@@ -145,9 +163,29 @@ class MainWindow(QMainWindow):
         """
         try:
             settings = self.settings_builder.build()
-            self.compute(
-                settings, self.results_panel._result_callback, self._plot_callback
-            )
+
+            match diagnostic:
+                case PlotDiagnosticType.PLOT:
+                    self.compute(
+                        settings,
+                        self.results_panel._result_callback,
+                        self._plot_callback,
+                        diagnostic,
+                    )
+                case PlotDiagnosticType.RESIDUAL:
+                    self.compute(
+                        settings,
+                        self.results_panel._result_callback,
+                        self._residual_callback,
+                        diagnostic,
+                    )
+                case PlotDiagnosticType.QQ_PLOT:
+                    self.compute(
+                        settings,
+                        self.results_panel._result_callback,
+                        self._qq_callback,
+                        diagnostic,
+                    )
         except ValueError as e:
             traceback.print_exc()
             show_warning(self, "Error", str(e))
@@ -169,6 +207,16 @@ class MainWindow(QMainWindow):
         self._plot_window.show()
         self._plot_window.raise_()
         self._plot_window.plot(**kwargs)
+
+    def _residual_callback(self, **kwargs) -> None:
+        self._residual_window.show()
+        self._residual_window.raise_()
+        self._residual_window.plot(**kwargs)
+
+    def _qq_callback(self, **kwargs) -> None:
+        self._qq_window.show()
+        self._qq_window.raise_()
+        self._qq_window.plot(**kwargs)
 
     def _reset(self) -> None:
         """

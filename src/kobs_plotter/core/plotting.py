@@ -14,6 +14,7 @@ from scipy import stats
 from kobs_plotter.core.data_loader import PlotDataSeries
 from kobs_plotter.core.modelling import FitResult
 from kobs_plotter.core.settings import PlotSettings, PlotType
+from kobs_plotter.ui.plot_window import PlotDiagnosticType
 
 
 def _generate_surface(
@@ -160,6 +161,7 @@ def plot(
     result: FitResult,
     settings: PlotSettings,
     plot_callback: Callable,
+    diagnostic: PlotDiagnosticType,
 ) -> None:
     """
     Prepare plot data and dispatch to the UI plot callback.
@@ -188,8 +190,10 @@ def plot(
             x_fit=x_fit,
             y_fit=y_fit,
             z_fit=z_fit,
+            residuals=result.residuals,
             result_string=result_string,
             settings=settings,
+            diagnostic=diagnostic,
         )
     else:
         x_fit = np.linspace(np.min(data.x), np.max(data.x), 1_000)
@@ -203,7 +207,9 @@ def plot(
             x_fit=x_fit,
             y_fit=y_fit,
             result_string=result_string,
+            residuals=result.residuals,
             settings=settings,
             conf_lower=conf_lower,
             conf_upper=conf_upper,
+            diagnostic=diagnostic,
         )
