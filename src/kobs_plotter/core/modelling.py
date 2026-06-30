@@ -15,7 +15,6 @@ from sympy import Basic, lambdify, latex, symbols, sympify
 
 from kobs_plotter.core.data_loader import PlotDataSeries
 from kobs_plotter.core.settings import PlotSettings, PlotType
-from kobs_plotter.core.transforms import apply_transform
 
 
 @dataclass(frozen=True)
@@ -177,14 +176,15 @@ def _resolve_p0(
     }
     p0 = []
     for expr in p0_exprs:
-        result = apply_transform(expr, namespace, label=f"p0 expression '{expr}'")
+        if not expr or not expr.strip():
+            result = 1.0
+        else:
+            result = eval(expr, namespace)
+
         if result is not None:
             p0.append(float(result))
         else:
-            try:
-                p0.append(float(eval(expr, namespace)))
-            except Exception:
-                raise ValueError(f'Invalid initial value expression: "{expr}"')
+            raise ValueError(f'Invalid initial value expression: "{expr}"')
     return p0
 
 
