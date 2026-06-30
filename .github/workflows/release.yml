@@ -86,7 +86,7 @@ jobs:
           uv run pyinstaller \
             --onedir \
             --name kobs-plotter \
-            --icon src/kobs_plotter/assets/icons/kobs_plotter.png \
+            --icon src/kobs_plotter/assets/icons/logo.png \
             --add-data "src/kobs_plotter/assets:kobs_plotter/assets" \
             src/kobs_plotter/main.py
 

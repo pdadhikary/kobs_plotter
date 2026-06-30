@@ -1,8 +1,9 @@
 import sys
 from typing import Callable
 
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtWidgets import QApplication, QSplashScreen
 
 import kobs_plotter.resources_rc  # noqa: F401
 from kobs_plotter.core.data_loader import load_data
@@ -15,10 +16,17 @@ from kobs_plotter.ui.main_window import MainWindow
 def main():
     app = QApplication(sys.argv)
 
+    pixmap = QPixmap(":/images/splash.png")
+    splash = QSplashScreen(pixmap, Qt.WindowType.WindowStaysOnTopHint)
+    splash.show()
+
     app.setWindowIcon(QIcon(":/icons/logo.png"))
 
     window = MainWindow(compute)
     window.show()
+
+    splash.finish(window)
+
     sys.exit(app.exec())
 
 
