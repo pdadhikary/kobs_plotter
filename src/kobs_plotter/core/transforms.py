@@ -1,10 +1,9 @@
-from typing import Optional
 
 import numpy as np
 
 
 def apply_transform(
-    expr: Optional[str],
+    expr: str | None,
     namespace: dict,
     label: str,
 ) -> np.ndarray:

@@ -17,8 +17,28 @@ dependencies = [
 [project.scripts]
 kobs-plotter = "kobs_plotter.main:main"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-qt>=4.4",
+    "pytest-xvfb>=3.0",
+    "ruff>=0.6",
+]
+
 [tool.uv]
 package = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+qt_api = "pyside6"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
 
 [build-system]
 requires = ["hatchling"]

@@ -7,7 +7,6 @@ and the PlotSettingsBuilder for accumulating UI state before computation.
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional
 
 from kobs_plotter.core.defaults import (
     DEFAULT_COLORMAP,
@@ -43,18 +42,18 @@ class PlotSettings:
     sheet_name: str
     x_col: str
     y_col: str
-    z_col: Optional[str]
-    x_transform: Optional[str]
-    y_transform: Optional[str]
-    z_transform: Optional[str]
+    z_col: str | None
+    x_transform: str | None
+    y_transform: str | None
+    z_transform: str | None
     params: tuple[str, ...]
     formula: str
     p0: tuple[str, ...]
     plot_theme: str
-    title: Optional[str]
-    x_label: Optional[str]
-    y_label: Optional[str]
-    z_label: Optional[str]
+    title: str | None
+    x_label: str | None
+    y_label: str | None
+    z_label: str | None
     point_color: str
     line_color: str
     line_style: str
@@ -88,21 +87,21 @@ class PlotSettingsBuilder:
         All other fields default to None and must be set before calling build().
         """
         self._plot_type: PlotType = PlotType.SCATTER_LINE
-        self._data_path: Optional[str] = None
-        self._sheet_name: Optional[str] = None
-        self._x_col: Optional[str] = None
-        self._y_col: Optional[str] = None
-        self._z_col: Optional[str] = None
-        self._x_transform: Optional[str] = None
-        self._y_transform: Optional[str] = None
-        self._z_transform: Optional[str] = None
-        self._params: Optional[list[str]] = None
-        self._formula: Optional[str] = None
-        self._p0: Optional[list[str]] = None
-        self._title: Optional[str] = None
-        self._x_label: Optional[str] = None
-        self._y_label: Optional[str] = None
-        self._z_label: Optional[str] = None
+        self._data_path: str | None = None
+        self._sheet_name: str | None = None
+        self._x_col: str | None = None
+        self._y_col: str | None = None
+        self._z_col: str | None = None
+        self._x_transform: str | None = None
+        self._y_transform: str | None = None
+        self._z_transform: str | None = None
+        self._params: list[str] | None = None
+        self._formula: str | None = None
+        self._p0: list[str] | None = None
+        self._title: str | None = None
+        self._x_label: str | None = None
+        self._y_label: str | None = None
+        self._z_label: str | None = None
         self._plot_theme: str = DEFAULT_THEME
         self._point_color: str = DEFAULT_POINT_COLOR
         self._line_color: str = DEFAULT_LINE_COLOR
@@ -114,32 +113,32 @@ class PlotSettingsBuilder:
         self._plot_type = plot_type
         return self
 
-    def set_data_path(self, data_path: Optional[str]) -> "PlotSettingsBuilder":
+    def set_data_path(self, data_path: str | None) -> "PlotSettingsBuilder":
         """Set the absolute path to the Excel file."""
         self._data_path = data_path
         return self
 
-    def set_sheet_name(self, sheet_name: Optional[str]) -> "PlotSettingsBuilder":
+    def set_sheet_name(self, sheet_name: str | None) -> "PlotSettingsBuilder":
         """Set the name of the sheet to read from the Excel file."""
         self._sheet_name = sheet_name
         return self
 
-    def set_x_col(self, col: Optional[str]) -> "PlotSettingsBuilder":
+    def set_x_col(self, col: str | None) -> "PlotSettingsBuilder":
         """Set the column name to use as the independent variable (X axis)."""
         self._x_col = col
         return self
 
-    def set_y_col(self, col: Optional[str]) -> "PlotSettingsBuilder":
+    def set_y_col(self, col: str | None) -> "PlotSettingsBuilder":
         """Set the column name to use as the dependent variable (Y axis)."""
         self._y_col = col
         return self
 
-    def set_z_col(self, col: Optional[str]) -> "PlotSettingsBuilder":
+    def set_z_col(self, col: str | None) -> "PlotSettingsBuilder":
         """Set the column name to use as the Z axis. Required for 3D surface plots."""
         self._z_col = col
         return self
 
-    def set_x_transform(self, transform: Optional[str]) -> "PlotSettingsBuilder":
+    def set_x_transform(self, transform: str | None) -> "PlotSettingsBuilder":
         """
         Set a NumPy expression to transform the X series before fitting.
 
@@ -152,7 +151,7 @@ class PlotSettingsBuilder:
         self._x_transform = transform
         return self
 
-    def set_y_transform(self, transform: Optional[str]) -> "PlotSettingsBuilder":
+    def set_y_transform(self, transform: str | None) -> "PlotSettingsBuilder":
         """
         Set a NumPy expression to transform the Y series before fitting.
 
@@ -165,7 +164,7 @@ class PlotSettingsBuilder:
         self._y_transform = transform
         return self
 
-    def set_z_transform(self, transform: Optional[str]) -> "PlotSettingsBuilder":
+    def set_z_transform(self, transform: str | None) -> "PlotSettingsBuilder":
         """
         Set a NumPy expression to transform the Z series before fitting.
 
@@ -175,7 +174,7 @@ class PlotSettingsBuilder:
         self._z_transform = transform
         return self
 
-    def set_params(self, params: Optional[list[str]]) -> "PlotSettingsBuilder":
+    def set_params(self, params: list[str] | None) -> "PlotSettingsBuilder":
         """
         Set the list of parameter symbols for the model formula.
 
@@ -189,7 +188,7 @@ class PlotSettingsBuilder:
         self._params = params
         return self
 
-    def set_formula(self, formula: Optional[str]) -> "PlotSettingsBuilder":
+    def set_formula(self, formula: str | None) -> "PlotSettingsBuilder":
         """
         Set the model formula as a mathematical expression string.
 
@@ -204,7 +203,7 @@ class PlotSettingsBuilder:
         self._formula = formula
         return self
 
-    def set_p0(self, p0: Optional[list[str]]) -> "PlotSettingsBuilder":
+    def set_p0(self, p0: list[str] | None) -> "PlotSettingsBuilder":
         """
         Set the initial parameter guesses for curve_fit.
 
@@ -224,22 +223,22 @@ class PlotSettingsBuilder:
         self._plot_theme = theme
         return self
 
-    def set_title(self, title: Optional[str]) -> "PlotSettingsBuilder":
+    def set_title(self, title: str | None) -> "PlotSettingsBuilder":
         """Set the plot title. Supports LaTeX expressions wrapped in $...$."""
         self._title = title
         return self
 
-    def set_x_label(self, label: Optional[str]) -> "PlotSettingsBuilder":
+    def set_x_label(self, label: str | None) -> "PlotSettingsBuilder":
         """Set the X axis label. Supports LaTeX expressions wrapped in $...$."""
         self._x_label = label
         return self
 
-    def set_y_label(self, label: Optional[str]) -> "PlotSettingsBuilder":
+    def set_y_label(self, label: str | None) -> "PlotSettingsBuilder":
         """Set the Y axis label. Supports LaTeX expressions wrapped in $...$."""
         self._y_label = label
         return self
 
-    def set_z_label(self, label: Optional[str]) -> "PlotSettingsBuilder":
+    def set_z_label(self, label: str | None) -> "PlotSettingsBuilder":
         """Set the Z axis label. Only used for 3D surface plots. Supports LaTeX."""
         self._z_label = label
         return self

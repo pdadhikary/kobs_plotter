@@ -11,7 +11,8 @@ payload assembly. Shared formatting logic lives on the base class.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
 class PlotStrategy(ABC):
     """Strategy encapsulating all plot-type-specific computation."""
 
-    plot_type: "PlotType"
+    plot_type: PlotType
     """The PlotType this strategy handles."""
 
     dependent_label: str
@@ -35,27 +36,27 @@ class PlotStrategy(ABC):
 
     @abstractmethod
     def load_series(
-        self, settings: "PlotSettings", df: "pd.DataFrame"
-    ) -> "PlotDataSeries":
+        self, settings: PlotSettings, df: pd.DataFrame
+    ) -> PlotDataSeries:
         """Extract the (optionally transformed) data series from the loaded frame."""
 
     @abstractmethod
-    def build_model(self, settings: "PlotSettings") -> tuple[Callable, "Basic"]:
+    def build_model(self, settings: PlotSettings) -> tuple[Callable, Basic]:
         """Parse the formula string into a curve_fit-compatible callable and sympy expr."""
 
     @abstractmethod
     def run_fit(
-        self, model: Callable, data: "PlotDataSeries", p0: list[float]
+        self, model: Callable, data: PlotDataSeries, p0: list[float]
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Run curve_fit and return (popt, pcov, observed_dep, predicted_dep)."""
 
     @abstractmethod
     def prepare_payload(
         self,
-        data: "PlotDataSeries",
-        result: "FitResult",
-        settings: "PlotSettings",
-    ) -> "PlotPayload":
+        data: PlotDataSeries,
+        result: FitResult,
+        settings: PlotSettings,
+    ) -> PlotPayload:
         """
         Assemble the main-plot PlotPayload bundling everything the UI needs.
 
@@ -64,18 +65,19 @@ class PlotStrategy(ABC):
         """
 
     def format_result_string(
-        self, settings: "PlotSettings", result: "FitResult"
+        self, settings: PlotSettings, result: FitResult
     ) -> str:
         """Format fit results into the multi-line string shown on the plot."""
         parameter_lines = [
             f"{param}={opt:.4f} $\\pm$ {err:.3f}"
-            for param, opt, err in zip(settings.params, result.popt, result.perr)
+            for param, opt, err in zip(settings.params, result.popt, result.perr, strict=False)
         ]
         gof_lines = [
             f"{metric}={value:.4f}"
             for metric, value in zip(
                 ["$R^2$", "Adj. $R^2$", "RMSE", "MAE", "SSE"],
                 [result.r2, result.r2_adj, result.rmse, result.mae, result.sse],
+                strict=True,
             )
         ]
         lines = [

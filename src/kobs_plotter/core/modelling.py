@@ -5,10 +5,8 @@ Handles parameter initialisation, curve fitting via scipy (dispatched to
 the active plot-type strategy), and goodness-of-fit computation.
 """
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Callable
-
-from typing import Sequence
 
 import numpy as np
 from sympy import latex

@@ -1,16 +1,28 @@
 """
 Plot panel UI component for kobs-plotter.
 
-Provides controls for plot theme selection, axis labels, scatter point
-styling, and trend line or surface colormap styling. Updates the shared
-PlotSettingsBuilder as the user interacts with the widgets.
+Centre-right panel: matplotlib theme selection, axis labels, scatter
+point styling, and-trend-line-or-surface-colormap styling. State is
+pushed into :class:`AppState`.
 
-In 2D mode the trend line style section is visible and the surface
-colormap section is hidden. In 3D mode this is reversed, and an
-additional Z axis label input is shown.
+Hardening relative to the previous version:
+
+- Themes and colormaps are discovered from the running matplotlib at
+  startup (``plt.style.available`` / ``matplotlib.colormaps()``), so the
+  panel never breaks when matplotlib renames a style.
+- Color inputs use :class:`ColorSwatchButton` (a ``QColorDialog`` swatch
+  with an advanced hex line edit) instead of bare line edits that
+  validated only at plot-render time.
+- Default lookups fall back to index 0 when a default is missing
+  (:func:`safe_set_current`), preventing ``ValueError`` from ``.index()``.
+- Every field has a tooltip; label fields declare that they support
+  LaTeX via ``$...$``.
 """
 
-from PySide6.QtGui import QFont
+from __future__ import annotations
+
+import matplotlib
+import matplotlib.pyplot as plt
 from PySide6.QtWidgets import (
     QComboBox,
     QLineEdit,
@@ -25,207 +37,170 @@ from kobs_plotter.core.defaults import (
     DEFAULT_POINT_COLOR,
     DEFAULT_THEME,
 )
-from kobs_plotter.core.settings import PlotSettingsBuilder
 from kobs_plotter.ui.ui_helpers import divider, field_label, section_label
+from kobs_plotter.ui.viewmodel import AppState
+from kobs_plotter.ui.widgets import CollapsibleSection, ColorSwatchButton, safe_set_current
 
-PLOT_THEMES = [
+# Curated subset of matplotlib's themes shown in the dropdown. Discovered
+# at runtime so renames in newer matplotlib don't break the combo.
+_CURATED_THEMES = [
     "ggplot",
-    "fivethirtyeight",
     "seaborn-v0_8-whitegrid",
+    "seaborn-v0_8-darkgrid",
     "seaborn-v0_8-bright",
     "seaborn-v0_8-paper",
-    "seaborn-v0_8-poster",
-    "seaborn-v0_8-darkgrid",
+    "fivethirtyeight",
+    "bmh",
+    "classic",
 ]
-"""Available matplotlib style themes shown in the plot theme dropdown."""
+
+
+def _available_themes() -> list[str]:
+    """Curated themes that actually exist in the running matplotlib."""
+    avail = set(plt.style.available)
+    return [t for t in _CURATED_THEMES if t in avail]
+
+
+def _available_colormaps() -> list[str]:
+    """Subset of matplotlib's installed colormaps, kept short for the combo."""
+    cms = list(matplotlib.colormaps())
+    curated = [
+        "viridis",
+        "plasma",
+        "inferno",
+        "magma",
+        "cividis",
+        "coolwarm",
+        "RdYlBu",
+        "turbo",
+    ]
+    return [c for c in curated if c in cms] or cms[:8]
+
 
 LINESTYLES = ["-", "--", "-.", ":"]
-"""Available matplotlib line style strings for the trend line."""
-
-COLORMAPS = [
-    "viridis",
-    "plasma",
-    "inferno",
-    "magma",
-    "cividis",
-    "coolwarm",
-    "RdYlBu",
-    "spectral",
-    "turbo",
-    "jet",
-]
-"""Available matplotlib colormap names for 3D surface plots."""
 
 
 class PlotPanel(QWidget):
-    """
-    Centre-right panel handling plot appearance and labelling.
+    """Plot appearance and labelling panel."""
 
-    Provides four sections:
-
-    - **Plot theme** — matplotlib style theme applied to the plot window.
-    - **Plot labels** — title and axis label inputs supporting LaTeX via $...$.
-    - **Scatter style** — point color for observed data scatter points.
-    - **Trend line style (2D only)** — line color and style for the fitted curve.
-    - **Surface style (3D only)** — colormap for the fitted surface mesh.
-
-    The trend line and surface sections are mutually exclusive and toggle
-    visibility when set_mode() is called. The Z axis label input is also
-    hidden in 2D mode.
-
-    Args:
-        settings_builder: shared builder instance updated as the user
-                          interacts with the panel widgets.
-    """
-
-    def __init__(self, settings_builder: PlotSettingsBuilder):
+    def __init__(self, state: AppState):
         super().__init__()
-        self.setMaximumWidth(320)
-        self.settings_builder = settings_builder
+        self.state = state
+        self.setMaximumWidth(360)
         self.is_3d = False
 
+        self._themes = _available_themes()
+        self._colormaps = _available_colormaps()
+
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
         layout.setContentsMargins(16, 16, 16, 16)
 
-        # ── Plot theme ───────────────────────────────────────
+        # ── Plot theme ────────────────────────────────────────────
         layout.addWidget(section_label("Plot theme"))
         self.plot_theme_combo = QComboBox()
-        self.plot_theme_combo.addItems(PLOT_THEMES)
-        self.plot_theme_combo.currentTextChanged.connect(
-            self.settings_builder.set_plot_theme
-        )
-        self.plot_theme_combo.setCurrentIndex(PLOT_THEMES.index(DEFAULT_THEME))
+        self.plot_theme_combo.addItems(self._themes)
+        self.plot_theme_combo.setToolTip("matplotlib style applied to plot windows")
+        self.plot_theme_combo.currentTextChanged.connect(self.state.set_plot_theme)
+        safe_set_current(self.plot_theme_combo, DEFAULT_THEME)
         layout.addWidget(self.plot_theme_combo)
 
-        # ── Labels ───────────────────────────────────────────
+        # ── Labels ────────────────────────────────────────────────
         layout.addWidget(section_label("Plot labels"))
-
         layout.addWidget(field_label("Title"))
         self.title_input = QLineEdit()
-        self.title_input.setPlaceholderText("e.g. Conductance vs Time")
-        self.title_input.textChanged.connect(self.settings_builder.set_title)
+        self.title_input.setPlaceholderText("e.g. Conductance vs Time (LaTeX: $\\alpha$)")
+        self.title_input.setToolTip("Plot title. LaTeX supported via $...$.")
+        self.title_input.textChanged.connect(self.state.set_title)
         layout.addWidget(self.title_input)
 
         layout.addWidget(field_label("X axis"))
         self.x_label_input = QLineEdit()
         self.x_label_input.setPlaceholderText("e.g. Time (s)")
-        self.x_label_input.textChanged.connect(self.settings_builder.set_x_label)
+        self.x_label_input.setToolTip("X axis label. LaTeX supported via $...$.")
+        self.x_label_input.textChanged.connect(self.state.set_x_label)
         layout.addWidget(self.x_label_input)
 
         layout.addWidget(field_label("Y axis"))
         self.y_label_input = QLineEdit()
         self.y_label_input.setPlaceholderText("e.g. Conductance (S)")
-        self.y_label_input.textChanged.connect(self.settings_builder.set_y_label)
+        self.y_label_input.setToolTip("Y axis label. LaTeX supported via $...$.")
+        self.y_label_input.textChanged.connect(self.state.set_y_label)
         layout.addWidget(self.y_label_input)
 
-        # ── Z axis label (3D only, hidden by default) ────────
-        self.z_label_widget = QWidget()
-        z_label_layout = QVBoxLayout(self.z_label_widget)
-        z_label_layout.setContentsMargins(0, 0, 0, 0)
-        z_label_layout.setSpacing(4)
-        z_label_layout.addWidget(field_label("Z axis"))
+        self.z_label_widget = CollapsibleSection()
+        self.z_label_widget.add_widget(field_label("Z axis"))
         self.z_label_input = QLineEdit()
         self.z_label_input.setPlaceholderText("e.g. Intensity")
-        self.z_label_input.textChanged.connect(self.settings_builder.set_z_label)
-        z_label_layout.addWidget(self.z_label_input)
+        self.z_label_input.setToolTip("Z axis label (3D). LaTeX supported via $...$.")
+        self.z_label_input.textChanged.connect(self.state.set_z_label)
+        self.z_label_widget.add_widget(self.z_label_input)
         self.z_label_widget.setVisible(False)
         layout.addWidget(self.z_label_widget)
 
         layout.addWidget(divider())
 
-        # ── Scatter style ────────────────────────────────────
+        # ── Scatter style ──────────────────────────────────────────
         layout.addWidget(section_label("Scatter style"))
-
         layout.addWidget(field_label("Point color"))
-        self.scatter_color_input = QLineEdit()
-        self.scatter_color_input.setPlaceholderText("e.g. black, red, #FF5733")
-        self.scatter_color_input.setFont(QFont("monospace", 9))
-        self.scatter_color_input.setText(DEFAULT_POINT_COLOR)
-        self.scatter_color_input.textChanged.connect(
-            self.settings_builder.set_point_color
-        )
-        layout.addWidget(self.scatter_color_input)
+        self.scatter_color = ColorSwatchButton(initial=DEFAULT_POINT_COLOR)
+        self.scatter_color.setToolTip("Color of the observed data scatter points")
+        self.scatter_color.colorChanged.connect(self.state.set_point_color)
+        layout.addWidget(self.scatter_color)
 
         layout.addWidget(divider())
 
-        # ── Trend line style (2D only) ────────────────────────
-        self.line_style_widget = QWidget()
-        line_style_layout = QVBoxLayout(self.line_style_widget)
-        line_style_layout.setContentsMargins(0, 0, 0, 0)
-        line_style_layout.setSpacing(4)
-        line_style_layout.addWidget(section_label("Trend line style"))
+        # ── Trend line style (2D) ─────────────────────────────────
+        self.line_style_widget = CollapsibleSection()
+        self.line_style_widget.add_widget(section_label("Trend line style"))
+        self.line_style_widget.add_widget(field_label("Line color"))
+        self.line_color = ColorSwatchButton(initial=DEFAULT_LINE_COLOR)
+        self.line_color.setToolTip("Color of the fitted trend line")
+        self.line_color.colorChanged.connect(self.state.set_line_color)
+        self.line_style_widget.add_widget(self.line_color)
 
-        line_style_layout.addWidget(field_label("Line color"))
-        self.line_color_input = QLineEdit()
-        self.line_color_input.setPlaceholderText("e.g. red, blue, #FF5733")
-        self.line_color_input.setFont(QFont("monospace", 9))
-        self.line_color_input.setText(DEFAULT_LINE_COLOR)
-        self.line_color_input.textChanged.connect(self.settings_builder.set_line_color)
-        line_style_layout.addWidget(self.line_color_input)
-
-        line_style_layout.addWidget(field_label("Line style"))
+        self.line_style_widget.add_widget(field_label("Line style"))
         self.linestyle_combo = QComboBox()
         self.linestyle_combo.addItems(LINESTYLES)
-        self.linestyle_combo.currentTextChanged.connect(
-            self.settings_builder.set_line_style
-        )
-        line_style_layout.addWidget(self.linestyle_combo)
+        self.linestyle_combo.setToolTip("matplotlib line style: - -- -. :")
+        self.linestyle_combo.currentTextChanged.connect(self.state.set_line_style)
+        safe_set_current(self.linestyle_combo, DEFAULT_LINE_STYLE)
+        self.line_style_widget.add_widget(self.linestyle_combo)
         layout.addWidget(self.line_style_widget)
 
-        # ── Surface colormap (3D only, hidden by default) ─────
-        self.colormap_widget = QWidget()
-        colormap_layout = QVBoxLayout(self.colormap_widget)
-        colormap_layout.setContentsMargins(0, 0, 0, 0)
-        colormap_layout.setSpacing(4)
-        colormap_layout.addWidget(section_label("Surface style"))
-        colormap_layout.addWidget(field_label("Colormap"))
+        # ── Surface colormap (3D) ─────────────────────────────────
+        self.colormap_widget = CollapsibleSection()
+        self.colormap_widget.add_widget(section_label("Surface style"))
+        self.colormap_widget.add_widget(field_label("Colormap"))
         self.colormap_combo = QComboBox()
-        self.colormap_combo.addItems(COLORMAPS)
-        self.colormap_combo.currentTextChanged.connect(
-            self.settings_builder.set_colormap
-        )
-        self.colormap_combo.setCurrentIndex(COLORMAPS.index(DEFAULT_COLORMAP))
-        colormap_layout.addWidget(self.colormap_combo)
+        self.colormap_combo.addItems(self._colormaps)
+        self.colormap_combo.setToolTip("matplotlib colormap for the fitted surface")
+        self.colormap_combo.currentTextChanged.connect(self.state.set_colormap)
+        safe_set_current(self.colormap_combo, DEFAULT_COLORMAP)
+        self.colormap_widget.add_widget(self.colormap_combo)
         self.colormap_widget.setVisible(False)
         layout.addWidget(self.colormap_widget)
 
         layout.addStretch()
 
     def set_mode(self, is_3d: bool) -> None:
-        """
-        Switch the panel between 2D and 3D mode.
-
-        Shows the Z axis label input and surface colormap section in 3D mode.
-        Hides the trend line style section in 3D mode and restores it in 2D.
-        Resets the colormap to its default when switching modes.
-
-        Args:
-            is_3d: True to enable 3D mode, False for 2D.
-        """
+        """Toggle 2D/3D sections."""
         self.is_3d = is_3d
         self.z_label_widget.setVisible(is_3d)
         self.line_style_widget.setVisible(not is_3d)
         self.colormap_widget.setVisible(is_3d)
-        self.colormap_combo.setCurrentIndex(COLORMAPS.index(DEFAULT_COLORMAP))
 
+    # ── reset ─────────────────────────────────────────────────────
     def on_reset(self) -> None:
-        """
-        Reset all panel inputs to their default state.
-
-        Clears all label inputs, resets theme and style selectors to their
-        defaults, restores default colors, resets the 3D mode flag, and
-        restores 2D visibility (trend line visible, colormap and Z label hidden).
-        """
         self.title_input.setText("")
         self.x_label_input.setText("")
         self.y_label_input.setText("")
         self.z_label_input.setText("")
-        self.plot_theme_combo.setCurrentIndex(PLOT_THEMES.index(DEFAULT_THEME))
-        self.scatter_color_input.setText(DEFAULT_POINT_COLOR)
-        self.line_color_input.setText(DEFAULT_LINE_COLOR)
-        self.linestyle_combo.setCurrentIndex(LINESTYLES.index(DEFAULT_LINE_STYLE))
-        self.colormap_combo.setCurrentIndex(COLORMAPS.index(DEFAULT_COLORMAP))
+        safe_set_current(self.plot_theme_combo, DEFAULT_THEME)
+        self.scatter_color.set_value(DEFAULT_POINT_COLOR)
+        self.line_color.set_value(DEFAULT_LINE_COLOR)
+        safe_set_current(self.linestyle_combo, DEFAULT_LINE_STYLE)
+        safe_set_current(self.colormap_combo, DEFAULT_COLORMAP)
         self.is_3d = False
         self.z_label_widget.setVisible(False)
         self.line_style_widget.setVisible(True)

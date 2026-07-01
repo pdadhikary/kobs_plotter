@@ -8,7 +8,6 @@ introducing import cycles.
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 
@@ -25,7 +24,7 @@ class PlotDataSeries:
 
     x: np.ndarray
     y: np.ndarray
-    z: Optional[np.ndarray]
+    z: np.ndarray | None
 
 
 @dataclass(frozen=True)
@@ -63,14 +62,14 @@ class PlotPayload:
     diagnostic: PlotDiagnosticType
     """Which diagnostic view the UI should render from this payload."""
 
-    z: Optional[np.ndarray] = None
+    z: np.ndarray | None = None
     """Observed Z values for 3D plots; None for 2D."""
 
-    z_fit: Optional[np.ndarray] = None
+    z_fit: np.ndarray | None = None
     """Fitted Z mesh for 3D plots; None for 2D."""
 
-    conf_lower: Optional[np.ndarray] = None
+    conf_lower: np.ndarray | None = None
     """Lower confidence band for 2D plots; None for 3D."""
 
-    conf_upper: Optional[np.ndarray] = None
+    conf_upper: np.ndarray | None = None
     """Upper confidence band for 2D plots; None for 3D."""
