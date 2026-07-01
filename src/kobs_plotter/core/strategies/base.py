@@ -68,10 +68,9 @@ class PlotStrategy(ABC):
         self, settings: "PlotSettings", result: "FitResult"
     ) -> str:
         """Format fit results into the multi-line string shown on the plot."""
-        perr = np.sqrt(np.diag(result.pcov))
         parameter_lines = [
             f"{param}={opt:.4f} $\\pm$ {err:.3f}"
-            for param, opt, err in zip(settings.params, result.popt, perr)
+            for param, opt, err in zip(settings.params, result.popt, result.perr)
         ]
         gof_lines = [
             f"{metric}={value:.4f}"

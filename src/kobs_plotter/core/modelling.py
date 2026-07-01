@@ -61,9 +61,14 @@ class FitResult:
     """Sum of squared errors."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class GoodnessOfFit:
-    """Intermediate container for goodness-of-fit metrics computed during fitting."""
+    """Intermediate container for goodness-of-fit metrics computed during fitting.
+
+    Frozen for consistency with the other core DTOs (PlotSettings,
+    PlotDataSeries, FitResult, PlotPayload) — it is built once and never
+    mutated.
+    """
 
     residuals: np.ndarray
     r2: np.float64

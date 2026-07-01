@@ -25,8 +25,8 @@ def load_data(settings: PlotSettings) -> PlotDataSeries:
     """
     try:
         df = pd.read_excel(settings.data_path, sheet_name=settings.sheet_name)
-    except FileNotFoundError:
-        raise FileNotFoundError(f"File not found: {settings.data_path}")
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"File not found: {settings.data_path}") from e
     except Exception as e:
         raise RuntimeError(f"Failed to read Excel file: {e}") from e
 
