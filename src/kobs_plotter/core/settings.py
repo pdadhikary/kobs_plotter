@@ -9,6 +9,14 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional
 
+from kobs_plotter.core.defaults import (
+    DEFAULT_COLORMAP,
+    DEFAULT_LINE_COLOR,
+    DEFAULT_LINE_STYLE,
+    DEFAULT_POINT_COLOR,
+    DEFAULT_THEME,
+)
+
 
 class PlotType(Enum):
     """Enum representing the type of plot to generate."""
@@ -95,11 +103,11 @@ class PlotSettingsBuilder:
         self._x_label: Optional[str] = None
         self._y_label: Optional[str] = None
         self._z_label: Optional[str] = None
-        self._plot_theme: Optional[str] = "ggplot"
-        self._point_color: Optional[str] = "black"
-        self._line_color: Optional[str] = "red"
-        self._line_style: Optional[str] = "-"
-        self._colormap: Optional[str] = "viridis"
+        self._plot_theme: Optional[str] = DEFAULT_THEME
+        self._point_color: Optional[str] = DEFAULT_POINT_COLOR
+        self._line_color: Optional[str] = DEFAULT_LINE_COLOR
+        self._line_style: Optional[str] = DEFAULT_LINE_STYLE
+        self._colormap: Optional[str] = DEFAULT_COLORMAP
 
     def set_plot_type(self, plot_type: PlotType) -> "PlotSettingsBuilder":
         """Set the plot type (2D scatter/line or 3D surface)."""
