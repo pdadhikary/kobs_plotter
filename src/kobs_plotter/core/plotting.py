@@ -12,9 +12,9 @@ import numpy as np
 from scipy import stats
 
 from kobs_plotter.core.data_loader import PlotDataSeries
+from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.modelling import FitResult
 from kobs_plotter.core.settings import PlotSettings, PlotType
-from kobs_plotter.ui.plot_window import PlotDiagnosticType
 
 
 def _generate_surface(

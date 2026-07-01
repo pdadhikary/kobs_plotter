@@ -7,7 +7,6 @@ and line plots with confidence bands, and 3D surface plots with
 projected contours.
 """
 
-from enum import Enum, auto
 from typing import Optional
 
 import matplotlib.pyplot as plt
@@ -17,13 +16,8 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolb
 from matplotlib.figure import Figure
 from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 
+from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.settings import PlotSettings, PlotType
-
-
-class PlotDiagnosticType(Enum):
-    PLOT = auto()
-    RESIDUAL = auto()
-    QQ_PLOT = auto()
 
 
 class PlotWindow(QMainWindow):

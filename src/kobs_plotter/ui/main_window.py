@@ -20,11 +20,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.settings import PlotSettingsBuilder, PlotType
 from kobs_plotter.ui.config_panel import ConfigPanel
 from kobs_plotter.ui.file_panel import FilePanel
 from kobs_plotter.ui.plot_panel import PlotPanel
-from kobs_plotter.ui.plot_window import PlotDiagnosticType, PlotWindow
+from kobs_plotter.ui.plot_window import PlotWindow
 from kobs_plotter.ui.results_panel import ResultsPanel
 from kobs_plotter.ui.ui_helpers import show_error, show_warning
 

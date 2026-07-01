@@ -7,11 +7,11 @@ from PySide6.QtWidgets import QApplication, QSplashScreen
 
 import kobs_plotter.resources_rc  # noqa: F401
 from kobs_plotter.core.data_loader import load_data
+from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.modelling import fit
 from kobs_plotter.core.plotting import plot
 from kobs_plotter.core.settings import PlotSettings
 from kobs_plotter.ui.main_window import MainWindow
-from kobs_plotter.ui.plot_window import PlotDiagnosticType
 
 
 def main():
