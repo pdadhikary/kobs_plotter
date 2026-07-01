@@ -4,10 +4,12 @@ Plot window UI component for kobs-plotter.
 Provides a standalone QMainWindow containing an embedded matplotlib
 figure with the standard navigation toolbar. Supports both 2D scatter
 and line plots with confidence bands, and 3D surface plots with
-projected contours.
+projected contours. Per-view rendering is dispatched through a
+(plot_type, diagnostic) -> renderer registry, replacing the previous
+nested match inside plot().
 """
 
-from typing import Optional
+from typing import Callable, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,6 +22,122 @@ from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.plotting import PlotPayload
 from kobs_plotter.core.settings import PlotSettings, PlotType
 
+# A renderer draws one (plot_type, diagnostic) view onto a Figure.
+Renderer = Callable[[Figure, PlotPayload], None]
+
+
+def _render_scatter_plot(figure: Figure, payload: PlotPayload) -> None:
+    """Render a 2D scatter plot with fitted curve and confidence band."""
+    settings = payload.settings
+    ax = figure.add_subplot(111)
+    ax.scatter(payload.x, payload.y, color=settings.point_color, zorder=5)
+    ax.plot(
+        payload.x_fit,
+        payload.y_fit,
+        color=settings.line_color,
+        linestyle=settings.line_style,
+    )
+    ax.fill_between(
+        payload.x_fit,
+        payload.conf_lower,
+        payload.conf_upper,
+        alpha=0.2,
+        color=settings.line_color,
+    )
+    ax.set_title(settings.title or "")
+    ax.set_xlabel(settings.x_label or "")
+    ax.set_ylabel(settings.y_label or "")
+    figure.subplots_adjust(right=0.65)
+    _add_result_text(figure, payload.result_string)
+
+
+def _render_surface_plot(figure: Figure, payload: PlotPayload) -> None:
+    """Render a 3D scatter plot with fitted surface and projected contour."""
+    settings = payload.settings
+    ax = figure.add_subplot(111, projection="3d")
+    ax.scatter(payload.x, payload.y, payload.z, alpha=0.6, color=settings.point_color, zorder=5)
+    ax.plot_surface(payload.x_fit, payload.y_fit, payload.z_fit, cmap=settings.colormap, alpha=0.6)
+    ax.contour(
+        payload.x_fit,
+        payload.y_fit,
+        payload.z_fit,
+        zdir="z",
+        offset=ax.get_zlim()[0],
+        cmap=settings.colormap,
+    )
+    ax.set_title(settings.title or "")
+    ax.set_xlabel(settings.x_label or "")
+    ax.set_ylabel(settings.y_label or "")
+    ax.set_zlabel(settings.z_label or "")
+    figure.subplots_adjust(right=0.55)
+    _add_result_text(figure, payload.result_string)
+
+
+def _render_scatter_residual(figure: Figure, payload: PlotPayload) -> None:
+    """Render a 2D residual scatter plot against the independent variable."""
+    settings = payload.settings
+    ax = figure.add_subplot(111)
+    ax.scatter(payload.x, payload.residuals, color=settings.point_color, zorder=5)
+    ax.axhline(
+        y=0,
+        label="Baseline",
+        color=settings.line_color,
+        linestyle=settings.line_style,
+    )
+    ax.set_title(settings.title or "")
+    ax.set_xlabel(settings.x_label or "")
+    ax.set_ylabel("Residuals")
+    figure.legend()
+
+
+def _render_surface_residual(figure: Figure, payload: PlotPayload) -> None:
+    """Render a 3D residual scatter plot against the two independent variables."""
+    settings = payload.settings
+    ax = figure.add_subplot(111, projection="3d")
+    ax.scatter(payload.x, payload.y, payload.residuals, color=settings.point_color, zorder=5)
+
+    xlim, ylim = ax.get_xlim(), ax.get_ylim()
+    xx, yy = np.meshgrid(xlim, ylim)
+    zz = np.zeros_like(xx)
+    ax.plot_surface(xx, yy, zz, alpha=0.15, color="gray")
+
+    ax.set_title(settings.title or "")
+    ax.set_xlabel(settings.x_label or "")
+    ax.set_ylabel(settings.y_label or "")
+    ax.set_zlabel("Residuals")
+
+
+def _render_qq(figure: Figure, payload: PlotPayload) -> None:
+    """Render a normal Q-Q plot of the fit residuals."""
+    settings = payload.settings
+    ax = figure.add_subplot(111)
+    stats.probplot(payload.residuals, dist="norm", plot=ax)
+    ax.set_title(settings.title or "")
+
+
+def _add_result_text(figure: Figure, result_string: str) -> None:
+    """Place the formatted result string in the right margin of the figure."""
+    figure.text(
+        0.67,
+        0.50,
+        result_string,
+        fontsize=9,
+        family="monospace",
+        verticalalignment="center",
+        bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+    )
+
+
+# Registry replacing the nested (plot_type x diagnostic) match in plot().
+_RENDERERS: dict[tuple[PlotType, PlotDiagnosticType], Renderer] = {
+    (PlotType.SCATTER_LINE, PlotDiagnosticType.PLOT): _render_scatter_plot,
+    (PlotType.SCATTER_LINE, PlotDiagnosticType.RESIDUAL): _render_scatter_residual,
+    (PlotType.SCATTER_LINE, PlotDiagnosticType.QQ_PLOT): _render_qq,
+    (PlotType.SURFACE_3D, PlotDiagnosticType.PLOT): _render_surface_plot,
+    (PlotType.SURFACE_3D, PlotDiagnosticType.RESIDUAL): _render_surface_residual,
+    (PlotType.SURFACE_3D, PlotDiagnosticType.QQ_PLOT): _render_qq,
+}
+
 
 class PlotWindow(QMainWindow):
     """
@@ -28,22 +146,14 @@ class PlotWindow(QMainWindow):
     Hosts an embedded matplotlib figure with the standard navigation
     toolbar (zoom, pan, save). The window is created once by MainWindow
     and reused across successive compute runs — calling plot() clears
-    and redraws the figure in place.
-
-    Supports two rendering modes driven by PlotSettings.plot_type:
-
-    - **2D (SCATTER_LINE)** — scatter plot of observed data with the
-      fitted curve overlaid and a shaded confidence band.
-    - **3D (SURFACE_3D)** — 3D scatter of observed points with the
-      fitted surface mesh and a projected contour at the base.
-
-    A formatted result string showing the fitted formula, parameter
-    values, and goodness-of-fit metrics is placed outside the axes
-    in the right margin for both plot types.
+    and redraws the figure in place. The actual drawing for each
+    (plot_type, diagnostic) combination lives in module-level renderer
+    functions keyed by the _RENDERERS registry.
 
     Args:
         parent: optional parent widget. When set to MainWindow the plot
                 window stays in front of the main window on most platforms.
+        window_title: title shown in the window title bar.
     """
 
     def __init__(self, parent=None, window_title: str = "Plot"):
@@ -62,15 +172,15 @@ class PlotWindow(QMainWindow):
         layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
 
-        self._text_obj = None
-
     def plot(self, payload: PlotPayload) -> None:
         """
         Clear the figure and render a new plot from the provided payload.
 
-        Dispatches to _plot_2d or _plot_3d based on settings.plot_type.
-        The selected plot theme is applied via a style context so it does
-        not affect any other matplotlib state outside this window.
+        Looks up the renderer for (settings.plot_type, payload.diagnostic)
+        in the _RENDERERS registry and invokes it with the figure and
+        payload. The selected plot theme is applied via a style context
+        so it does not affect any other matplotlib state outside this
+        window.
 
         Args:
             payload: immutable PlotPayload bundling all data and settings
@@ -79,205 +189,13 @@ class PlotWindow(QMainWindow):
         settings = payload.settings
         with plt.style.context(settings.plot_theme):
             self._clear()
-
-            match settings.plot_type:
-                case PlotType.SURFACE_3D:
-                    match payload.diagnostic:
-                        case PlotDiagnosticType.PLOT:
-                            self._plot_3d(
-                                payload.x,
-                                payload.y,
-                                payload.z,
-                                payload.x_fit,
-                                payload.y_fit,
-                                payload.z_fit,
-                                payload.result_string,
-                                settings,
-                            )
-                        case PlotDiagnosticType.RESIDUAL:
-                            self._plot_residual_3d(
-                                payload.x, payload.y, payload.residuals, settings
-                            )
-                        case PlotDiagnosticType.QQ_PLOT:
-                            self._plot_qq(payload.residuals, settings)
-                case PlotType.SCATTER_LINE:
-                    match payload.diagnostic:
-                        case PlotDiagnosticType.PLOT:
-                            self._plot_2d(
-                                payload.x,
-                                payload.y,
-                                payload.x_fit,
-                                payload.y_fit,
-                                payload.conf_lower,
-                                payload.conf_upper,
-                                payload.result_string,
-                                settings,
-                            )
-                        case PlotDiagnosticType.RESIDUAL:
-                            self._plot_residual_2d(
-                                payload.x, payload.residuals, settings
-                            )
-                        case PlotDiagnosticType.QQ_PLOT:
-                            self._plot_qq(payload.residuals, settings)
-
+            renderer = _RENDERERS[(settings.plot_type, payload.diagnostic)]
+            renderer(self.figure, payload)
             self.canvas.draw()
-
-    def _plot_qq(self, residuals: np.ndarray, settings: PlotSettings):
-        ax = self.figure.add_subplot(111)
-        stats.probplot(residuals, dist="norm", plot=ax)
-
-        ax.set_title(settings.title or "")
-
-    def _plot_residual_2d(
-        self, x: np.ndarray, residuals: np.ndarray, settings: PlotSettings
-    ):
-        ax = self.figure.add_subplot(111)
-        ax.scatter(x, residuals, color=settings.point_color, zorder=5)
-        ax.axhline(
-            y=0,
-            label="Baseline",
-            color=settings.line_color,
-            linestyle=settings.line_style,
-        )
-
-        ax.set_title(settings.title or "")
-        ax.set_xlabel(settings.x_label or "")
-        ax.set_ylabel("Residuals")
-
-        self.figure.legend()
-
-    def _plot_residual_3d(
-        self,
-        x: np.ndarray,
-        y: np.ndarray,
-        residuals: np.ndarray,
-        settings: PlotSettings,
-    ):
-        ax = self.figure.add_subplot(111, projection="3d")
-        ax.scatter(x, y, residuals, color=settings.point_color, zorder=5)
-
-        xlim, ylim = ax.get_xlim(), ax.get_ylim()
-        xx, yy = np.meshgrid(xlim, ylim)
-        zz = np.zeros_like(xx)
-
-        ax.plot_surface(xx, yy, zz, alpha=0.15, color="gray")
-
-        ax.set_title(settings.title or "")
-        ax.set_xlabel(settings.x_label or "")
-        ax.set_ylabel(settings.y_label or "")
-        ax.set_zlabel("Residuals")
-
-    def _plot_2d(
-        self,
-        x: np.ndarray,
-        y: np.ndarray,
-        x_fit: np.ndarray,
-        y_fit: np.ndarray,
-        conf_lower: Optional[np.ndarray],
-        conf_upper: Optional[np.ndarray],
-        result_string: str,
-        settings: PlotSettings,
-    ) -> None:
-        """
-        Render a 2D scatter plot with fitted curve and confidence band.
-
-        Plots observed data as scatter points, overlays the fitted curve,
-        and shades the region between conf_lower and conf_upper to indicate
-        the confidence band. The result string is placed in the right margin
-        outside the axes using figure coordinates.
-
-        Args:
-            x:             observed X values.
-            y:             observed Y values.
-            x_fit:         dense X values along the fitted curve.
-            y_fit:         fitted Y values corresponding to x_fit.
-            conf_lower:    lower bound of the confidence band at each x_fit point.
-            conf_upper:    upper bound of the confidence band at each x_fit point.
-            result_string: formatted result text for the right margin annotation.
-            settings:      plot settings controlling colors, labels, and line style.
-        """
-        ax = self.figure.add_subplot(111)
-        ax.scatter(x, y, color=settings.point_color, zorder=5)
-        ax.plot(x_fit, y_fit, color=settings.line_color, linestyle=settings.line_style)
-        ax.fill_between(
-            x_fit,
-            conf_lower,
-            conf_upper,
-            alpha=0.2,
-            color=settings.line_color,
-        )
-        ax.set_title(settings.title or "")
-        ax.set_xlabel(settings.x_label or "")
-        ax.set_ylabel(settings.y_label or "")
-        self.figure.subplots_adjust(right=0.65)
-        self._text_obj = self.figure.text(
-            0.67,
-            0.50,
-            result_string,
-            fontsize=9,
-            family="monospace",
-            verticalalignment="center",
-            bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
-        )
-
-    def _plot_3d(
-        self,
-        x: np.ndarray,
-        y: np.ndarray,
-        z: Optional[np.ndarray],
-        x_fit: np.ndarray,
-        y_fit: np.ndarray,
-        z_fit: Optional[np.ndarray],
-        result_string: str,
-        settings: PlotSettings,
-    ) -> None:
-        """
-        Render a 3D scatter plot with fitted surface and projected contour.
-
-        Plots observed (x, y, z) data as semi-transparent scatter points,
-        overlays the fitted surface mesh with the selected colormap, and
-        projects a contour of the surface onto the base plane for additional
-        spatial context. The result string is placed in the right margin.
-
-        Args:
-            x:             observed X values.
-            y:             observed Y values.
-            z:             observed Z values.
-            x_fit:         X mesh of shape (n, n) covering the observed X range.
-            y_fit:         Y mesh of shape (n, n) covering the observed Y range.
-            z_fit:         fitted Z values evaluated over the x_fit/y_fit mesh.
-            result_string: formatted result text for the right margin annotation.
-            settings:      plot settings controlling colors, colormap, and labels.
-        """
-        ax = self.figure.add_subplot(111, projection="3d")
-        ax.scatter(x, y, z, alpha=0.6, color=settings.point_color, zorder=5)
-        ax.plot_surface(x_fit, y_fit, z_fit, cmap=settings.colormap, alpha=0.6)
-        ax.contour(
-            x_fit,
-            y_fit,
-            z_fit,
-            zdir="z",
-            offset=ax.get_zlim()[0],
-            cmap=settings.colormap,
-        )
-        ax.set_title(settings.title or "")
-        ax.set_xlabel(settings.x_label or "")
-        ax.set_ylabel(settings.y_label or "")
-        ax.set_zlabel(settings.z_label or "")
-        self.figure.subplots_adjust(right=0.55)
-        self._text_obj = self.figure.text(
-            0.67,
-            0.50,
-            result_string,
-            fontsize=9,
-            family="monospace",
-            verticalalignment="center",
-            bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
-        )
 
     def _clear(self) -> None:
         """
-        Clear the figure and reset the text object reference.
+        Clear the figure.
 
         Applies the current theme's figure background color after clearing
         so the canvas background matches the selected plot theme. Called
@@ -285,7 +203,6 @@ class PlotWindow(QMainWindow):
         """
         self.figure.clear()
         self.figure.set_facecolor(plt.rcParams["figure.facecolor"])
-        self._text_obj = None
 
     def on_reset(self) -> None:
         """
