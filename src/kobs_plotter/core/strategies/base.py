@@ -56,9 +56,13 @@ class PlotStrategy(ABC):
         data: "PlotDataSeries",
         result: "FitResult",
         settings: "PlotSettings",
-        diagnostic: "PlotDiagnosticType",
     ) -> "PlotPayload":
-        """Assemble a PlotPayload bundling everything the UI needs to render."""
+        """
+        Assemble the main-plot PlotPayload bundling everything the UI needs.
+
+        Only invoked for the primary fit plot — residual and Q-Q diagnostics
+        are short-circuited by the plot() dispatcher into a minimal payload.
+        """
 
     def format_result_string(
         self, settings: "PlotSettings", result: "FitResult"

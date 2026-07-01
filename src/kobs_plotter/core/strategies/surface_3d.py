@@ -16,13 +16,13 @@ import pandas as pd
 from scipy.optimize import curve_fit
 from sympy import Basic, lambdify, symbols, sympify
 
+from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.settings import PlotSettings, PlotType
 from kobs_plotter.core.strategies.base import PlotStrategy
 from kobs_plotter.core.transforms import apply_transform
 from kobs_plotter.core.types import PlotDataSeries, PlotPayload
 
 if TYPE_CHECKING:
-    from kobs_plotter.core.diagnostics import PlotDiagnosticType
     from kobs_plotter.core.modelling import FitResult
 
 
@@ -71,7 +71,6 @@ class Surface3DStrategy(PlotStrategy):
         data: PlotDataSeries,
         result: FitResult,
         settings: PlotSettings,
-        diagnostic: PlotDiagnosticType,
     ) -> PlotPayload:
         result_string = self.format_result_string(settings, result)
 
@@ -90,5 +89,5 @@ class Surface3DStrategy(PlotStrategy):
             result_string=result_string,
             residuals=result.residuals,
             settings=settings,
-            diagnostic=diagnostic,
+            diagnostic=PlotDiagnosticType.PLOT,
         )
