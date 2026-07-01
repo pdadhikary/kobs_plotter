@@ -1,20 +1,19 @@
 """
 Core curve fitting module for kobs-plotter.
 
-Handles model construction from user-defined symbolic expressions,
-parameter initialisation, curve fitting via scipy, and goodness-of-fit
-computation for both 2D and 3D plot types.
+Handles parameter initialisation, curve fitting via scipy (dispatched to
+the active plot-type strategy), and goodness-of-fit computation.
 """
 
 from dataclasses import dataclass
 from typing import Callable
 
 import numpy as np
-from scipy.optimize import curve_fit
-from sympy import Basic, lambdify, latex, symbols, sympify
+from sympy import latex
 
-from kobs_plotter.core.data_loader import PlotDataSeries
-from kobs_plotter.core.settings import PlotSettings, PlotType
+from kobs_plotter.core.settings import PlotSettings
+from kobs_plotter.core.strategies import STRATEGIES
+from kobs_plotter.core.types import PlotDataSeries  # noqa: F401
 
 
 @dataclass(frozen=True)
@@ -70,44 +69,6 @@ class GoodnessOfFit:
     rmse: np.float64
     mae: np.float64
     sse: np.float64
-
-
-def _build_model(settings: PlotSettings) -> tuple[Callable, Basic]:
-    """
-    Parse the user-defined formula string into a curve_fit compatible callable.
-
-    For 2D fits the model signature is f(x, *params).
-    For 3D fits the independent variables are packed into a single array XY
-    of shape (2, n) so that curve_fit receives f(XY, *params), where
-    XY[0] = x and XY[1] = y.
-
-    Args:
-        settings: immutable PlotSettings containing the formula and params.
-
-    Returns:
-        Tuple of (model callable, sympy expression).
-
-    Raises:
-        ValueError: if the formula or parameter symbols cannot be parsed.
-    """
-    param_syms = symbols(settings.params)
-    if not isinstance(param_syms, (list, tuple)):
-        param_syms = [param_syms]
-    expr = sympify(settings.formula)
-
-    if settings.plot_type == PlotType.SURFACE_3D:
-        x_sym, y_sym = symbols("x y")
-        raw_func = lambdify([x_sym, y_sym, *param_syms], expr, modules="numpy")
-
-        def model(XY, *params):
-            x, y = XY
-            return raw_func(x, y, *params)
-
-    else:
-        x_sym = symbols("x")
-        model = lambdify([x_sym, *param_syms], expr, modules="numpy")
-
-    return model, expr
 
 
 def _goodness_of_fit(
@@ -192,9 +153,10 @@ def fit(data: PlotDataSeries, settings: PlotSettings) -> FitResult:
     """
     Fit the user-defined model to the loaded data series.
 
-    Builds the model callable from the formula string, resolves initial
-    parameter guesses, runs scipy curve_fit, and computes goodness-of-fit
-    metrics. Supports both 2D (x → y) and 3D (x, y → z) fitting.
+    Resolves initial parameter guesses, dispatches model construction and
+    curve fitting to the active plot-type strategy, and computes
+    goodness-of-fit metrics. Supports both 2D (x -> y) and 3D (x, y -> z)
+    fitting via the strategy registry.
 
     Args:
         data:     loaded and transformed data series from load_data().
@@ -208,21 +170,12 @@ def fit(data: PlotDataSeries, settings: PlotSettings) -> FitResult:
         ValueError: if p0 expressions are invalid or the model formula fails.
         RuntimeError: if curve_fit fails to converge within maxfev iterations.
     """
-    model, expr = _build_model(settings)
+    strategy = STRATEGIES[settings.plot_type]
+    model, expr = strategy.build_model(settings)
     p0 = _resolve_p0(settings.p0, data)
 
-    if settings.plot_type == PlotType.SURFACE_3D:
-        z = data.z if isinstance(data.z, np.ndarray) else np.array([])
-        popt, pcov = curve_fit(
-            model, (data.x, data.y), z, p0=p0, method="lm", maxfev=10_000
-        )
-        z_pred = model((data.x, data.y), *popt)
-        gof = _goodness_of_fit(z, z_pred, len(p0))
-    else:
-        popt, pcov = curve_fit(model, data.x, data.y, p0=p0, method="lm", maxfev=10_000)
-        y_pred = model(data.x, *popt)
-        gof = _goodness_of_fit(data.y, y_pred, len(p0))
-
+    popt, pcov, observed, predicted = strategy.run_fit(model, data, p0)
+    gof = _goodness_of_fit(observed, predicted, len(p0))
     perr = np.sqrt(np.diag(pcov))
 
     return FitResult(
