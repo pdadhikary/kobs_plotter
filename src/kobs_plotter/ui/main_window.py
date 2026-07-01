@@ -27,6 +27,7 @@ from kobs_plotter.ui.config_panel import ConfigPanel
 from kobs_plotter.ui.file_panel import FilePanel
 from kobs_plotter.ui.plot_panel import PlotPanel
 from kobs_plotter.ui.plot_window import PlotWindow
+from kobs_plotter.ui.resettable import ResetCoordinator
 from kobs_plotter.ui.results_panel import ResultsPanel
 from kobs_plotter.ui.ui_helpers import show_error, show_warning
 
@@ -63,9 +64,16 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("K Observes Plotter")
         self.setMinimumSize(1600, 800)
         self.compute_service = compute_service
-        self._plot_window = PlotWindow(parent=self, window_title="Plot")
-        self._residual_window = PlotWindow(parent=self, window_title="Residual Plot")
-        self._qq_window = PlotWindow(parent=self, window_title="Q-Q Plot")
+        self.reset_coordinator = ResetCoordinator()
+        self._plot_window = self.reset_coordinator.register(
+            PlotWindow(parent=self, window_title="Plot")
+        )
+        self._residual_window = self.reset_coordinator.register(
+            PlotWindow(parent=self, window_title="Residual Plot")
+        )
+        self._qq_window = self.reset_coordinator.register(
+            PlotWindow(parent=self, window_title="Q-Q Plot")
+        )
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -79,10 +87,10 @@ class MainWindow(QMainWindow):
 
         self.settings_builder = PlotSettingsBuilder()
 
-        self.file_panel = FilePanel(self.settings_builder)
-        self.config_panel = ConfigPanel(self.settings_builder)
-        self.plot_panel = PlotPanel(self.settings_builder)
-        self.results_panel = ResultsPanel()
+        self.file_panel = self.reset_coordinator.register(FilePanel(self.settings_builder))
+        self.config_panel = self.reset_coordinator.register(ConfigPanel(self.settings_builder))
+        self.plot_panel = self.reset_coordinator.register(PlotPanel(self.settings_builder))
+        self.results_panel = self.reset_coordinator.register(ResultsPanel())
 
         panels_row.addWidget(self.file_panel)
         panels_row.addWidget(self._vdivider())
@@ -111,13 +119,7 @@ class MainWindow(QMainWindow):
         self.reset_btn = QPushButton("Reset")
         self.reset_btn.setFixedWidth(100)
         self.reset_btn.clicked.connect(self._reset)
-        self.reset_btn.clicked.connect(self.file_panel.on_reset)
-        self.reset_btn.clicked.connect(self.config_panel.on_reset)
-        self.reset_btn.clicked.connect(self.plot_panel.on_reset)
-        self.reset_btn.clicked.connect(self.results_panel.on_reset)
-        self.reset_btn.clicked.connect(self._plot_window.on_reset)
-        self.reset_btn.clicked.connect(self._residual_window.on_reset)
-        self.reset_btn.clicked.connect(self._qq_window.on_reset)
+        self.reset_btn.clicked.connect(self.reset_coordinator.reset_all)
 
         self.qq_btn = QPushButton("Show QQ Plot")
         self.qq_btn.setFixedWidth(150)
