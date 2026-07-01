@@ -8,6 +8,8 @@ the active plot-type strategy), and goodness-of-fit computation.
 from dataclasses import dataclass
 from typing import Callable
 
+from typing import Sequence
+
 import numpy as np
 from sympy import latex
 
@@ -109,7 +111,7 @@ def _goodness_of_fit(
 
 
 def _resolve_p0(
-    p0_exprs: list[str],
+    p0_exprs: Sequence[str],
     data: PlotDataSeries,
 ) -> list[float]:
     """
