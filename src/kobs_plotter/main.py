@@ -40,7 +40,8 @@ def compute(
     data = load_data(settings)
     result = fit(data, settings)
     result_callback(result, settings.params)
-    plot(data, result, settings, plot_callback, diagnostic)
+    payload = plot(data, result, settings, diagnostic)
+    plot_callback(payload)
 
 
 if __name__ == "__main__":

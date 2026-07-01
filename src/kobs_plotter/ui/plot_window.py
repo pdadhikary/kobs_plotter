@@ -17,6 +17,7 @@ from matplotlib.figure import Figure
 from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
+from kobs_plotter.core.plotting import PlotPayload
 from kobs_plotter.core.settings import PlotSettings, PlotType
 
 
@@ -63,71 +64,61 @@ class PlotWindow(QMainWindow):
 
         self._text_obj = None
 
-    def plot(
-        self,
-        x: np.ndarray,
-        y: np.ndarray,
-        x_fit: np.ndarray,
-        y_fit: np.ndarray,
-        result_string: str,
-        residuals: np.ndarray,
-        settings: PlotSettings,
-        z: Optional[np.ndarray] = None,
-        z_fit: Optional[np.ndarray] = None,
-        conf_lower: Optional[np.ndarray] = None,
-        conf_upper: Optional[np.ndarray] = None,
-        diagnostic: PlotDiagnosticType = PlotDiagnosticType.PLOT,
-    ) -> None:
+    def plot(self, payload: PlotPayload) -> None:
         """
-        Clear the figure and render a new plot from the provided data.
+        Clear the figure and render a new plot from the provided payload.
 
         Dispatches to _plot_2d or _plot_3d based on settings.plot_type.
         The selected plot theme is applied via a style context so it does
         not affect any other matplotlib state outside this window.
 
         Args:
-            x:             observed X values.
-            y:             observed Y values.
-            x_fit:         X values for the fitted curve (2D) or X mesh (3D).
-            y_fit:         fitted curve Y values (2D) or Y mesh (3D).
-            result_string: formatted multi-line string shown in the right margin.
-            settings:      immutable plot settings controlling style and labels.
-            z:             observed Z values for 3D plots, None for 2D.
-            z_fit:         fitted Z mesh for 3D plots, None for 2D.
-            conf_lower:    lower confidence band for 2D plots, None for 3D.
-            conf_upper:    upper confidence band for 2D plots, None for 3D.
+            payload: immutable PlotPayload bundling all data and settings
+                      needed to render the requested diagnostic view.
         """
+        settings = payload.settings
         with plt.style.context(settings.plot_theme):
             self._clear()
 
             match settings.plot_type:
                 case PlotType.SURFACE_3D:
-                    match diagnostic:
+                    match payload.diagnostic:
                         case PlotDiagnosticType.PLOT:
                             self._plot_3d(
-                                x, y, z, x_fit, y_fit, z_fit, result_string, settings
-                            )
-                        case PlotDiagnosticType.RESIDUAL:
-                            self._plot_residual_3d(x, y, residuals, settings)
-                        case PlotDiagnosticType.QQ_PLOT:
-                            self._plot_qq(residuals, settings)
-                case PlotType.SCATTER_LINE:
-                    match diagnostic:
-                        case PlotDiagnosticType.PLOT:
-                            self._plot_2d(
-                                x,
-                                y,
-                                x_fit,
-                                y_fit,
-                                conf_lower,
-                                conf_upper,
-                                result_string,
+                                payload.x,
+                                payload.y,
+                                payload.z,
+                                payload.x_fit,
+                                payload.y_fit,
+                                payload.z_fit,
+                                payload.result_string,
                                 settings,
                             )
                         case PlotDiagnosticType.RESIDUAL:
-                            self._plot_residual_2d(x, residuals, settings)
+                            self._plot_residual_3d(
+                                payload.x, payload.y, payload.residuals, settings
+                            )
                         case PlotDiagnosticType.QQ_PLOT:
-                            self._plot_qq(residuals, settings)
+                            self._plot_qq(payload.residuals, settings)
+                case PlotType.SCATTER_LINE:
+                    match payload.diagnostic:
+                        case PlotDiagnosticType.PLOT:
+                            self._plot_2d(
+                                payload.x,
+                                payload.y,
+                                payload.x_fit,
+                                payload.y_fit,
+                                payload.conf_lower,
+                                payload.conf_upper,
+                                payload.result_string,
+                                settings,
+                            )
+                        case PlotDiagnosticType.RESIDUAL:
+                            self._plot_residual_2d(
+                                payload.x, payload.residuals, settings
+                            )
+                        case PlotDiagnosticType.QQ_PLOT:
+                            self._plot_qq(payload.residuals, settings)
 
             self.canvas.draw()
 

@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
+from kobs_plotter.core.plotting import PlotPayload
 from kobs_plotter.core.settings import PlotSettingsBuilder, PlotType
 from kobs_plotter.ui.config_panel import ConfigPanel
 from kobs_plotter.ui.file_panel import FilePanel
@@ -197,27 +198,27 @@ class MainWindow(QMainWindow):
             traceback.print_exc()
             show_error(self, "Error", str(e))
 
-    def _plot_callback(self, **kwargs) -> None:
+    def _plot_callback(self, payload: PlotPayload) -> None:
         """
         Callback passed to the compute layer to trigger plot rendering.
 
         Ensures the plot window is visible and raised to the front before
-        delegating all keyword arguments to PlotWindow.plot(). Called after
-        a successful fit by the plotting module.
+        delegating the PlotPayload to PlotWindow.plot(). Called after a
+        successful fit by the plotting module.
         """
         self._plot_window.show()
         self._plot_window.raise_()
-        self._plot_window.plot(**kwargs)
+        self._plot_window.plot(payload)
 
-    def _residual_callback(self, **kwargs) -> None:
+    def _residual_callback(self, payload: PlotPayload) -> None:
         self._residual_window.show()
         self._residual_window.raise_()
-        self._residual_window.plot(**kwargs)
+        self._residual_window.plot(payload)
 
-    def _qq_callback(self, **kwargs) -> None:
+    def _qq_callback(self, payload: PlotPayload) -> None:
         self._qq_window.show()
         self._qq_window.raise_()
-        self._qq_window.plot(**kwargs)
+        self._qq_window.plot(payload)
 
     def _reset(self) -> None:
         """

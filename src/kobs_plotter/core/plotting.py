@@ -2,11 +2,12 @@
 Plotting preparation module for kobs-plotter.
 
 Handles generation of fitted curves and surfaces, confidence band
-computation, result string formatting, and dispatching to the
-plot callback provided by the UI layer.
+computation, result string formatting, and assembly of a PlotPayload
+that the UI layer renders.
 """
 
-from typing import Callable
+from dataclasses import dataclass
+from typing import Callable, Optional
 
 import numpy as np
 from scipy import stats
@@ -15,6 +16,54 @@ from kobs_plotter.core.data_loader import PlotDataSeries
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.modelling import FitResult
 from kobs_plotter.core.settings import PlotSettings, PlotType
+
+
+@dataclass(frozen=True)
+class PlotPayload:
+    """
+    Immutable container bundling everything the UI needs to render a plot.
+
+    Returned by plot() and consumed by PlotWindow.plot(). Fields are
+    optional depending on plot type and diagnostic — 2D plots populate
+    conf_lower/conf_upper and leave z fields None; 3D plots populate
+    z_fit and leave the confidence band fields None.
+    """
+
+    x: np.ndarray
+    """Observed independent variable values."""
+
+    y: np.ndarray
+    """Observed dependent variable values (Y for 2D, Y coordinate for 3D)."""
+
+    x_fit: np.ndarray
+    """Dense X values along the fitted curve (2D) or X mesh (3D)."""
+
+    y_fit: np.ndarray
+    """Fitted Y values (2D) or Y mesh (3D)."""
+
+    result_string: str
+    """Formatted multi-line string shown in the right plot margin."""
+
+    residuals: np.ndarray
+    """Fit residuals (observed - predicted)."""
+
+    settings: PlotSettings
+    """Immutable plot settings driving labels, colors, and theme."""
+
+    diagnostic: PlotDiagnosticType
+    """Which diagnostic view the UI should render from this payload."""
+
+    z: Optional[np.ndarray] = None
+    """Observed Z values for 3D plots; None for 2D."""
+
+    z_fit: Optional[np.ndarray] = None
+    """Fitted Z mesh for 3D plots; None for 2D."""
+
+    conf_lower: Optional[np.ndarray] = None
+    """Lower confidence band for 2D plots; None for 3D."""
+
+    conf_upper: Optional[np.ndarray] = None
+    """Upper confidence band for 2D plots; None for 3D."""
 
 
 def _generate_surface(
@@ -160,30 +209,30 @@ def plot(
     data: PlotDataSeries,
     result: FitResult,
     settings: PlotSettings,
-    plot_callback: Callable,
     diagnostic: PlotDiagnosticType,
-) -> None:
+) -> PlotPayload:
     """
-    Prepare plot data and dispatch to the UI plot callback.
+    Prepare plot data and return a PlotPayload for the UI to render.
 
     For 2D plots generates a smooth fitted curve and computes a confidence
     band. For 3D plots generates a surface mesh over the observed x/y range.
-    Formats the result string and passes everything to the plot callback
-    provided by the UI layer.
+    Formats the result string and packages everything into an immutable
+    PlotPayload returned to the caller.
 
     Args:
-        data:          loaded and transformed data series.
-        result:        fit result from the modelling layer.
-        settings:      immutable plot settings.
-        plot_callback: callable provided by the UI that accepts keyword
-                       arguments and renders the plot. Signature differs
-                       between 2D and 3D — see PlotWindow.plot().
+        data:       loaded and transformed data series.
+        result:     fit result from the modelling layer.
+        settings:   immutable plot settings.
+        diagnostic: which diagnostic view to render from the resulting payload.
+
+    Returns:
+        PlotPayload bundling all inputs the UI needs for rendering.
     """
     result_string = _format_result_string(settings, result)
 
     if settings.plot_type == PlotType.SURFACE_3D:
         x_fit, y_fit, z_fit = _generate_surface(data, result)
-        plot_callback(
+        return PlotPayload(
             x=data.x,
             y=data.y,
             z=data.z,
@@ -195,21 +244,21 @@ def plot(
             settings=settings,
             diagnostic=diagnostic,
         )
-    else:
-        x_fit = np.linspace(np.min(data.x), np.max(data.x), 1_000)
-        y_fit = result.model(x_fit, *result.popt)
-        conf_lower, conf_upper = confidence_band(
-            data.x, data.y, x_fit, result.model, result.popt, result.pcov
-        )
-        plot_callback(
-            x=data.x,
-            y=data.y,
-            x_fit=x_fit,
-            y_fit=y_fit,
-            result_string=result_string,
-            residuals=result.residuals,
-            settings=settings,
-            conf_lower=conf_lower,
-            conf_upper=conf_upper,
-            diagnostic=diagnostic,
-        )
+
+    x_fit = np.linspace(np.min(data.x), np.max(data.x), 1_000)
+    y_fit = result.model(x_fit, *result.popt)
+    conf_lower, conf_upper = confidence_band(
+        data.x, data.y, x_fit, result.model, result.popt, result.pcov
+    )
+    return PlotPayload(
+        x=data.x,
+        y=data.y,
+        x_fit=x_fit,
+        y_fit=y_fit,
+        result_string=result_string,
+        residuals=result.residuals,
+        settings=settings,
+        conf_lower=conf_lower,
+        conf_upper=conf_upper,
+        diagnostic=diagnostic,
+    )
