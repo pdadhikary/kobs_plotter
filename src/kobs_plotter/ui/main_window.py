@@ -7,7 +7,6 @@ layer and the core computation layer via callbacks.
 """
 
 import traceback
-from typing import Callable
 
 from PySide6.QtWidgets import (
     QComboBox,
@@ -20,13 +19,25 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from kobs_plotter.core.diagnostics import PlotDiagnosticType
+from kobs_plotter.core.plotting import PlotPayload
+from kobs_plotter.core.service import ComputeService
 from kobs_plotter.core.settings import PlotSettingsBuilder, PlotType
 from kobs_plotter.ui.config_panel import ConfigPanel
 from kobs_plotter.ui.file_panel import FilePanel
 from kobs_plotter.ui.plot_panel import PlotPanel
-from kobs_plotter.ui.plot_window import PlotDiagnosticType, PlotWindow
+from kobs_plotter.ui.plot_window import PlotWindow
+from kobs_plotter.ui.resettable import ResetCoordinator
 from kobs_plotter.ui.results_panel import ResultsPanel
 from kobs_plotter.ui.ui_helpers import show_error, show_warning
+
+
+# Map each diagnostic kind to the floating window that renders it.
+_DIAGNOSTIC_WINDOWS: dict[PlotDiagnosticType, str] = {
+    PlotDiagnosticType.PLOT: "_plot_window",
+    PlotDiagnosticType.RESIDUAL: "_residual_window",
+    PlotDiagnosticType.QQ_PLOT: "_qq_window",
+}
 
 
 class MainWindow(QMainWindow):
@@ -40,23 +51,29 @@ class MainWindow(QMainWindow):
     across all panels. Each panel updates the builder directly as the user
     interacts with its widgets. When the user clicks Generate Plot, the
     builder is finalised into an immutable PlotSettings object and passed
-    to the compute callable provided at construction time.
+    to the ComputeService; the returned (FitResult, PlotPayload) is then
+    rendered directly into the results panel and the appropriate plot window.
 
     Args:
-        compute: callable provided by main() that orchestrates data loading,
-                 fitting, and plotting. Signature::
-
-                     compute(settings, result_callback, plot_callback)
+        compute_service: orchestrates data loading, fitting, and plot
+                        payload assembly. Constructed in main().
     """
 
-    def __init__(self, compute: Callable):
+    def __init__(self, compute_service: ComputeService):
         super().__init__()
         self.setWindowTitle("K Observes Plotter")
         self.setMinimumSize(1600, 800)
-        self.compute = compute
-        self._plot_window = PlotWindow(parent=self, window_title="Plot")
-        self._residual_window = PlotWindow(parent=self, window_title="Residual Plot")
-        self._qq_window = PlotWindow(parent=self, window_title="Q-Q Plot")
+        self.compute_service = compute_service
+        self.reset_coordinator = ResetCoordinator()
+        self._plot_window = self.reset_coordinator.register(
+            PlotWindow(parent=self, window_title="Plot")
+        )
+        self._residual_window = self.reset_coordinator.register(
+            PlotWindow(parent=self, window_title="Residual Plot")
+        )
+        self._qq_window = self.reset_coordinator.register(
+            PlotWindow(parent=self, window_title="Q-Q Plot")
+        )
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -70,10 +87,10 @@ class MainWindow(QMainWindow):
 
         self.settings_builder = PlotSettingsBuilder()
 
-        self.file_panel = FilePanel(self.settings_builder)
-        self.config_panel = ConfigPanel(self.settings_builder)
-        self.plot_panel = PlotPanel(self.settings_builder)
-        self.results_panel = ResultsPanel()
+        self.file_panel = self.reset_coordinator.register(FilePanel(self.settings_builder))
+        self.config_panel = self.reset_coordinator.register(ConfigPanel(self.settings_builder))
+        self.plot_panel = self.reset_coordinator.register(PlotPanel(self.settings_builder))
+        self.results_panel = self.reset_coordinator.register(ResultsPanel())
 
         panels_row.addWidget(self.file_panel)
         panels_row.addWidget(self._vdivider())
@@ -102,13 +119,7 @@ class MainWindow(QMainWindow):
         self.reset_btn = QPushButton("Reset")
         self.reset_btn.setFixedWidth(100)
         self.reset_btn.clicked.connect(self._reset)
-        self.reset_btn.clicked.connect(self.file_panel.on_reset)
-        self.reset_btn.clicked.connect(self.config_panel.on_reset)
-        self.reset_btn.clicked.connect(self.plot_panel.on_reset)
-        self.reset_btn.clicked.connect(self.results_panel.on_reset)
-        self.reset_btn.clicked.connect(self._plot_window.on_reset)
-        self.reset_btn.clicked.connect(self._residual_window.on_reset)
-        self.reset_btn.clicked.connect(self._qq_window.on_reset)
+        self.reset_btn.clicked.connect(self.reset_coordinator.reset_all)
 
         self.qq_btn = QPushButton("Show QQ Plot")
         self.qq_btn.setFixedWidth(150)
@@ -154,38 +165,20 @@ class MainWindow(QMainWindow):
 
     def _compute(self, diagnostic: PlotDiagnosticType) -> None:
         """
-        Handle Generate Plot button click.
+        Handle Generate / Residual / Q-Q button clicks.
 
-        Builds an immutable PlotSettings object from the current builder
-        state and passes it to the compute callable along with the result
-        and plot callbacks. Displays a warning dialog for validation errors
-        and an error dialog for unexpected failures.
+        Builds an immutable PlotSettings snapshot from the current builder
+        state and runs it through the ComputeService. On success the
+        returned FitResult is pushed to the results panel and the returned
+        PlotPayload is routed to the appropriate floating plot window.
+        Displays a warning dialog for validation errors and an error dialog
+        for unexpected failures.
         """
         try:
             settings = self.settings_builder.build()
-
-            match diagnostic:
-                case PlotDiagnosticType.PLOT:
-                    self.compute(
-                        settings,
-                        self.results_panel._result_callback,
-                        self._plot_callback,
-                        diagnostic,
-                    )
-                case PlotDiagnosticType.RESIDUAL:
-                    self.compute(
-                        settings,
-                        self.results_panel._result_callback,
-                        self._residual_callback,
-                        diagnostic,
-                    )
-                case PlotDiagnosticType.QQ_PLOT:
-                    self.compute(
-                        settings,
-                        self.results_panel._result_callback,
-                        self._qq_callback,
-                        diagnostic,
-                    )
+            result, payload = self.compute_service.compute(settings, diagnostic)
+            self.results_panel.display_result(result, settings.params)
+            self._render(payload)
         except ValueError as e:
             traceback.print_exc()
             show_warning(self, "Error", str(e))
@@ -196,27 +189,18 @@ class MainWindow(QMainWindow):
             traceback.print_exc()
             show_error(self, "Error", str(e))
 
-    def _plot_callback(self, **kwargs) -> None:
+    def _render(self, payload: PlotPayload) -> None:
         """
-        Callback passed to the compute layer to trigger plot rendering.
+        Show, raise, and render a PlotPayload into its target window.
 
-        Ensures the plot window is visible and raised to the front before
-        delegating all keyword arguments to PlotWindow.plot(). Called after
-        a successful fit by the plotting module.
+        The target window is selected from the payload's diagnostic kind
+        via the _DIAGNOSTIC_WINDOWS map, collapsing the three former
+        per-diagnostic callbacks into one dispatcher.
         """
-        self._plot_window.show()
-        self._plot_window.raise_()
-        self._plot_window.plot(**kwargs)
-
-    def _residual_callback(self, **kwargs) -> None:
-        self._residual_window.show()
-        self._residual_window.raise_()
-        self._residual_window.plot(**kwargs)
-
-    def _qq_callback(self, **kwargs) -> None:
-        self._qq_window.show()
-        self._qq_window.raise_()
-        self._qq_window.plot(**kwargs)
+        window: PlotWindow = getattr(self, _DIAGNOSTIC_WINDOWS[payload.diagnostic])
+        window.show()
+        window.raise_()
+        window.plot(payload)
 
     def _reset(self) -> None:
         """

@@ -18,6 +18,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from kobs_plotter.core.defaults import (
+    DEFAULT_COLORMAP,
+    DEFAULT_LINE_COLOR,
+    DEFAULT_LINE_STYLE,
+    DEFAULT_POINT_COLOR,
+    DEFAULT_THEME,
+)
 from kobs_plotter.core.settings import PlotSettingsBuilder
 from kobs_plotter.ui.ui_helpers import divider, field_label, section_label
 
@@ -48,11 +55,6 @@ COLORMAPS = [
     "jet",
 ]
 """Available matplotlib colormap names for 3D surface plots."""
-
-DEFAULT_SCATTER_COLOR = "black"
-DEFAULT_LINE_COLOR = "red"
-DEFAULT_LINE_STYLE_INDEX = 0
-DEFAULT_COLORMAP_INDEX = 0
 
 
 class PlotPanel(QWidget):
@@ -93,7 +95,7 @@ class PlotPanel(QWidget):
         self.plot_theme_combo.currentTextChanged.connect(
             self.settings_builder.set_plot_theme
         )
-        self.plot_theme_combo.setCurrentIndex(0)
+        self.plot_theme_combo.setCurrentIndex(PLOT_THEMES.index(DEFAULT_THEME))
         layout.addWidget(self.plot_theme_combo)
 
         # ── Labels ───────────────────────────────────────────
@@ -139,7 +141,7 @@ class PlotPanel(QWidget):
         self.scatter_color_input = QLineEdit()
         self.scatter_color_input.setPlaceholderText("e.g. black, red, #FF5733")
         self.scatter_color_input.setFont(QFont("monospace", 9))
-        self.scatter_color_input.setText(DEFAULT_SCATTER_COLOR)
+        self.scatter_color_input.setText(DEFAULT_POINT_COLOR)
         self.scatter_color_input.textChanged.connect(
             self.settings_builder.set_point_color
         )
@@ -183,7 +185,7 @@ class PlotPanel(QWidget):
         self.colormap_combo.currentTextChanged.connect(
             self.settings_builder.set_colormap
         )
-        self.colormap_combo.setCurrentIndex(DEFAULT_COLORMAP_INDEX)
+        self.colormap_combo.setCurrentIndex(COLORMAPS.index(DEFAULT_COLORMAP))
         colormap_layout.addWidget(self.colormap_combo)
         self.colormap_widget.setVisible(False)
         layout.addWidget(self.colormap_widget)
@@ -205,7 +207,7 @@ class PlotPanel(QWidget):
         self.z_label_widget.setVisible(is_3d)
         self.line_style_widget.setVisible(not is_3d)
         self.colormap_widget.setVisible(is_3d)
-        self.colormap_combo.setCurrentIndex(DEFAULT_COLORMAP_INDEX)
+        self.colormap_combo.setCurrentIndex(COLORMAPS.index(DEFAULT_COLORMAP))
 
     def on_reset(self) -> None:
         """
@@ -219,11 +221,11 @@ class PlotPanel(QWidget):
         self.x_label_input.setText("")
         self.y_label_input.setText("")
         self.z_label_input.setText("")
-        self.plot_theme_combo.setCurrentIndex(0)
-        self.scatter_color_input.setText(DEFAULT_SCATTER_COLOR)
+        self.plot_theme_combo.setCurrentIndex(PLOT_THEMES.index(DEFAULT_THEME))
+        self.scatter_color_input.setText(DEFAULT_POINT_COLOR)
         self.line_color_input.setText(DEFAULT_LINE_COLOR)
-        self.linestyle_combo.setCurrentIndex(DEFAULT_LINE_STYLE_INDEX)
-        self.colormap_combo.setCurrentIndex(DEFAULT_COLORMAP_INDEX)
+        self.linestyle_combo.setCurrentIndex(LINESTYLES.index(DEFAULT_LINE_STYLE))
+        self.colormap_combo.setCurrentIndex(COLORMAPS.index(DEFAULT_COLORMAP))
         self.is_3d = False
         self.z_label_widget.setVisible(False)
         self.line_style_widget.setVisible(True)

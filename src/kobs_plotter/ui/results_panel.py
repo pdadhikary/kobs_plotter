@@ -39,8 +39,8 @@ class ResultsPanel(QScrollArea):
     scroll area handles overflow naturally without internal scrollbars.
     Cells support contiguous selection and Ctrl+C copying.
 
-    The panel exposes _result_callback() for direct connection to the
-    compute layer, and display() for programmatic population.
+    The panel exposes display_result() for adapting a FitResult into the
+    table format, and display() for direct programmatic population.
     """
 
     def __init__(self):
@@ -103,13 +103,14 @@ class ResultsPanel(QScrollArea):
         self.params_table.setRowCount(0)
         self.gof_table.setRowCount(0)
 
-    def _result_callback(self, result: FitResult, parameters: list[str]) -> None:
+    def display_result(self, result: FitResult, parameters: list[str]) -> None:
         """
-        Callback invoked by the compute layer after a successful fit.
+        Adapt a FitResult into table rows and render it.
 
-        Transforms the FitResult into the format expected by display()
-        and delegates rendering. Connected to the compute callable in
-        MainWindow._compute().
+        Called by MainWindow after a successful compute run. Transforms
+        the FitResult into the (params, gof) format expected by display()
+        and delegates rendering. Replaces the former private _result_callback
+        that was wired through the compute callable.
 
         Args:
             result:     fit result from the modelling layer containing

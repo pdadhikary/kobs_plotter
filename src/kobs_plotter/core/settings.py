@@ -9,6 +9,14 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional
 
+from kobs_plotter.core.defaults import (
+    DEFAULT_COLORMAP,
+    DEFAULT_LINE_COLOR,
+    DEFAULT_LINE_STYLE,
+    DEFAULT_POINT_COLOR,
+    DEFAULT_THEME,
+)
+
 
 class PlotType(Enum):
     """Enum representing the type of plot to generate."""
@@ -39,18 +47,18 @@ class PlotSettings:
     x_transform: Optional[str]
     y_transform: Optional[str]
     z_transform: Optional[str]
-    params: list[str]
+    params: tuple[str, ...]
     formula: str
-    p0: list[str]
+    p0: tuple[str, ...]
     plot_theme: str
     title: Optional[str]
     x_label: Optional[str]
     y_label: Optional[str]
     z_label: Optional[str]
-    point_color: Optional[str]
-    line_color: Optional[str]
-    line_style: Optional[str]
-    colormap: Optional[str]
+    point_color: str
+    line_color: str
+    line_style: str
+    colormap: str
 
 
 class PlotSettingsBuilder:
@@ -79,7 +87,7 @@ class PlotSettingsBuilder:
         line color to 'red', line style to '-', and colormap to 'viridis'.
         All other fields default to None and must be set before calling build().
         """
-        self._plot_type: PlotType
+        self._plot_type: PlotType = PlotType.SCATTER_LINE
         self._data_path: Optional[str] = None
         self._sheet_name: Optional[str] = None
         self._x_col: Optional[str] = None
@@ -95,11 +103,11 @@ class PlotSettingsBuilder:
         self._x_label: Optional[str] = None
         self._y_label: Optional[str] = None
         self._z_label: Optional[str] = None
-        self._plot_theme: Optional[str] = "ggplot"
-        self._point_color: Optional[str] = "black"
-        self._line_color: Optional[str] = "red"
-        self._line_style: Optional[str] = "-"
-        self._colormap: Optional[str] = "viridis"
+        self._plot_theme: str = DEFAULT_THEME
+        self._point_color: str = DEFAULT_POINT_COLOR
+        self._line_color: str = DEFAULT_LINE_COLOR
+        self._line_style: str = DEFAULT_LINE_STYLE
+        self._colormap: str = DEFAULT_COLORMAP
 
     def set_plot_type(self, plot_type: PlotType) -> "PlotSettingsBuilder":
         """Set the plot type (2D scatter/line or 3D surface)."""
@@ -236,17 +244,17 @@ class PlotSettingsBuilder:
         self._z_label = label
         return self
 
-    def set_point_color(self, color: Optional[str]) -> "PlotSettingsBuilder":
+    def set_point_color(self, color: str) -> "PlotSettingsBuilder":
         """Set the color of scatter plot data points. Accepts any matplotlib color string or hex value."""
         self._point_color = color
         return self
 
-    def set_line_color(self, color: Optional[str]) -> "PlotSettingsBuilder":
+    def set_line_color(self, color: str) -> "PlotSettingsBuilder":
         """Set the color of the fitted trend line. Accepts any matplotlib color string or hex value."""
         self._line_color = color
         return self
 
-    def set_line_style(self, style: Optional[str]) -> "PlotSettingsBuilder":
+    def set_line_style(self, style: str) -> "PlotSettingsBuilder":
         """
         Set the line style of the fitted trend line.
 
@@ -255,7 +263,7 @@ class PlotSettingsBuilder:
         self._line_style = style
         return self
 
-    def set_colormap(self, colormap: Optional[str]) -> "PlotSettingsBuilder":
+    def set_colormap(self, colormap: str) -> "PlotSettingsBuilder":
         """Set the colormap for 3D surface plots. Accepts any valid matplotlib colormap name."""
         self._colormap = colormap
         return self
@@ -301,7 +309,8 @@ class PlotSettingsBuilder:
         Return a list of human-readable names of required fields that are not yet set.
 
         Used to populate the warning dialog shown to the user when they click
-        Generate Plot before filling in all required inputs.
+        Generate Plot before filling in all required inputs. The Z column is
+        included only for 3D surface plots, where it is required.
         """
         missing = []
         if self._data_path is None:
@@ -312,6 +321,8 @@ class PlotSettingsBuilder:
             missing.append("X Column")
         if self._y_col is None:
             missing.append("Y Column")
+        if self._plot_type == PlotType.SURFACE_3D and self._z_col is None:
+            missing.append("Z Column")
         if self._params is None:
             missing.append("Parameters")
         if self._formula is None:
@@ -336,6 +347,18 @@ class PlotSettingsBuilder:
         if not self.is_ready():
             raise ValueError(f"Missing fields: {', '.join(self.missing_fields())}")
 
+        # is_ready() guarantees these are set; the asserts narrow the types
+        # for the type-checker and act as a defensive guard at runtime.
+        assert self._data_path is not None
+        assert self._sheet_name is not None
+        assert self._x_col is not None
+        assert self._y_col is not None
+        assert self._params is not None
+        assert self._formula is not None
+        assert self._p0 is not None
+        if self._plot_type == PlotType.SURFACE_3D:
+            assert self._z_col is not None
+
         return PlotSettings(
             plot_type=self._plot_type,
             data_path=self._data_path,
@@ -346,9 +369,9 @@ class PlotSettingsBuilder:
             x_transform=self._x_transform,
             y_transform=self._y_transform,
             z_transform=self._z_transform,
-            params=self._params,
+            params=tuple(self._params),
             formula=self._formula,
-            p0=self._p0,
+            p0=tuple(self._p0),
             plot_theme=self._plot_theme,
             title=self._title,
             x_label=self._x_label,

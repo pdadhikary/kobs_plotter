@@ -1,20 +1,21 @@
 """
 Core curve fitting module for kobs-plotter.
 
-Handles model construction from user-defined symbolic expressions,
-parameter initialisation, curve fitting via scipy, and goodness-of-fit
-computation for both 2D and 3D plot types.
+Handles parameter initialisation, curve fitting via scipy (dispatched to
+the active plot-type strategy), and goodness-of-fit computation.
 """
 
 from dataclasses import dataclass
 from typing import Callable
 
-import numpy as np
-from scipy.optimize import curve_fit
-from sympy import Basic, lambdify, latex, symbols, sympify
+from typing import Sequence
 
-from kobs_plotter.core.data_loader import PlotDataSeries
-from kobs_plotter.core.settings import PlotSettings, PlotType
+import numpy as np
+from sympy import latex
+
+from kobs_plotter.core.settings import PlotSettings
+from kobs_plotter.core.strategies import STRATEGIES
+from kobs_plotter.core.types import PlotDataSeries  # noqa: F401
 
 
 @dataclass(frozen=True)
@@ -60,9 +61,14 @@ class FitResult:
     """Sum of squared errors."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class GoodnessOfFit:
-    """Intermediate container for goodness-of-fit metrics computed during fitting."""
+    """Intermediate container for goodness-of-fit metrics computed during fitting.
+
+    Frozen for consistency with the other core DTOs (PlotSettings,
+    PlotDataSeries, FitResult, PlotPayload) — it is built once and never
+    mutated.
+    """
 
     residuals: np.ndarray
     r2: np.float64
@@ -70,44 +76,6 @@ class GoodnessOfFit:
     rmse: np.float64
     mae: np.float64
     sse: np.float64
-
-
-def _build_model(settings: PlotSettings) -> tuple[Callable, Basic]:
-    """
-    Parse the user-defined formula string into a curve_fit compatible callable.
-
-    For 2D fits the model signature is f(x, *params).
-    For 3D fits the independent variables are packed into a single array XY
-    of shape (2, n) so that curve_fit receives f(XY, *params), where
-    XY[0] = x and XY[1] = y.
-
-    Args:
-        settings: immutable PlotSettings containing the formula and params.
-
-    Returns:
-        Tuple of (model callable, sympy expression).
-
-    Raises:
-        ValueError: if the formula or parameter symbols cannot be parsed.
-    """
-    param_syms = symbols(settings.params)
-    if not isinstance(param_syms, (list, tuple)):
-        param_syms = [param_syms]
-    expr = sympify(settings.formula)
-
-    if settings.plot_type == PlotType.SURFACE_3D:
-        x_sym, y_sym = symbols("x y")
-        raw_func = lambdify([x_sym, y_sym, *param_syms], expr, modules="numpy")
-
-        def model(XY, *params):
-            x, y = XY
-            return raw_func(x, y, *params)
-
-    else:
-        x_sym = symbols("x")
-        model = lambdify([x_sym, *param_syms], expr, modules="numpy")
-
-    return model, expr
 
 
 def _goodness_of_fit(
@@ -148,7 +116,7 @@ def _goodness_of_fit(
 
 
 def _resolve_p0(
-    p0_exprs: list[str],
+    p0_exprs: Sequence[str],
     data: PlotDataSeries,
 ) -> list[float]:
     """
@@ -174,12 +142,21 @@ def _resolve_p0(
         "z": data.z if isinstance(data.z, np.ndarray) else np.array([]),
         "np": np,
     }
+    # Restrict builtins so user-supplied p0 expressions cannot invoke
+    # arbitrary Python. Only np and the axis arrays are in scope; np.*
+    # helpers (np.max, np.min, np.mean, ...) remain available.
+    safe_globals: dict = {"__builtins__": {}}
     p0 = []
     for expr in p0_exprs:
         if not expr or not expr.strip():
             result = 1.0
         else:
-            result = eval(expr, namespace)
+            try:
+                result = eval(expr, safe_globals, namespace)
+            except Exception as e:
+                raise ValueError(
+                    f'Invalid initial value expression: "{expr}"'
+                ) from e
 
         if result is not None:
             p0.append(float(result))
@@ -192,9 +169,10 @@ def fit(data: PlotDataSeries, settings: PlotSettings) -> FitResult:
     """
     Fit the user-defined model to the loaded data series.
 
-    Builds the model callable from the formula string, resolves initial
-    parameter guesses, runs scipy curve_fit, and computes goodness-of-fit
-    metrics. Supports both 2D (x → y) and 3D (x, y → z) fitting.
+    Resolves initial parameter guesses, dispatches model construction and
+    curve fitting to the active plot-type strategy, and computes
+    goodness-of-fit metrics. Supports both 2D (x -> y) and 3D (x, y -> z)
+    fitting via the strategy registry.
 
     Args:
         data:     loaded and transformed data series from load_data().
@@ -208,21 +186,12 @@ def fit(data: PlotDataSeries, settings: PlotSettings) -> FitResult:
         ValueError: if p0 expressions are invalid or the model formula fails.
         RuntimeError: if curve_fit fails to converge within maxfev iterations.
     """
-    model, expr = _build_model(settings)
+    strategy = STRATEGIES[settings.plot_type]
+    model, expr = strategy.build_model(settings)
     p0 = _resolve_p0(settings.p0, data)
 
-    if settings.plot_type == PlotType.SURFACE_3D:
-        z = data.z if isinstance(data.z, np.ndarray) else np.array([])
-        popt, pcov = curve_fit(
-            model, (data.x, data.y), z, p0=p0, method="lm", maxfev=10_000
-        )
-        z_pred = model((data.x, data.y), *popt)
-        gof = _goodness_of_fit(z, z_pred, len(p0))
-    else:
-        popt, pcov = curve_fit(model, data.x, data.y, p0=p0, method="lm", maxfev=10_000)
-        y_pred = model(data.x, *popt)
-        gof = _goodness_of_fit(data.y, y_pred, len(p0))
-
+    popt, pcov, observed, predicted = strategy.run_fit(model, data, p0)
+    gof = _goodness_of_fit(observed, predicted, len(p0))
     perr = np.sqrt(np.diag(pcov))
 
     return FitResult(
