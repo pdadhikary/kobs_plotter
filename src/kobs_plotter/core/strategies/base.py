@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     import pandas as pd
     from sympy import Basic
 
-    from kobs_plotter.core.diagnostics import PlotDiagnosticType
     from kobs_plotter.core.modelling import FitResult
     from kobs_plotter.core.settings import PlotSettings, PlotType
     from kobs_plotter.core.types import PlotDataSeries, PlotPayload
@@ -90,3 +89,4 @@ class PlotStrategy(ABC):
             *gof_lines,
         ]
         return "\n".join(lines)
+

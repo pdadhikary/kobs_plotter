@@ -9,7 +9,7 @@ projected contours. Per-view rendering is dispatched through a
 nested match inside plot().
 """
 
-from typing import Callable, Optional
+from typing import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.plotting import PlotPayload
-from kobs_plotter.core.settings import PlotSettings, PlotType
+from kobs_plotter.core.settings import PlotType
 
 # A renderer draws one (plot_type, diagnostic) view onto a Figure.
 Renderer = Callable[[Figure, PlotPayload], None]
@@ -55,8 +55,12 @@ def _render_surface_plot(figure: Figure, payload: PlotPayload) -> None:
     """Render a 3D scatter plot with fitted surface and projected contour."""
     settings = payload.settings
     ax = figure.add_subplot(111, projection="3d")
-    ax.scatter(payload.x, payload.y, payload.z, alpha=0.6, color=settings.point_color, zorder=5)
-    ax.plot_surface(payload.x_fit, payload.y_fit, payload.z_fit, cmap=settings.colormap, alpha=0.6)
+    ax.scatter(
+        payload.x, payload.y, payload.z, alpha=0.6, color=settings.point_color, zorder=5
+    )
+    ax.plot_surface(
+        payload.x_fit, payload.y_fit, payload.z_fit, cmap=settings.colormap, alpha=0.6
+    )
     ax.contour(
         payload.x_fit,
         payload.y_fit,
@@ -94,7 +98,9 @@ def _render_surface_residual(figure: Figure, payload: PlotPayload) -> None:
     """Render a 3D residual scatter plot against the two independent variables."""
     settings = payload.settings
     ax = figure.add_subplot(111, projection="3d")
-    ax.scatter(payload.x, payload.y, payload.residuals, color=settings.point_color, zorder=5)
+    ax.scatter(
+        payload.x, payload.y, payload.residuals, color=settings.point_color, zorder=5
+    )
 
     xlim, ylim = ax.get_xlim(), ax.get_ylim()
     xx, yy = np.meshgrid(xlim, ylim)
@@ -215,3 +221,4 @@ class PlotWindow(QMainWindow):
             self._clear()
             self.figure.add_subplot(111)
             self.canvas.draw()
+

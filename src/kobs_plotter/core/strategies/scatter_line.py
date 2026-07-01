@@ -85,8 +85,8 @@ class ScatterLineStrategy(PlotStrategy):
         x = np.array(df[settings.x_col], dtype=float)
         y = np.array(df[settings.y_col], dtype=float)
         namespace = {"x": x, "y": y, "z": None, "np": np}
-        x_prime = apply_transform(settings.x_transform, namespace, "x") or x
-        y_prime = apply_transform(settings.y_transform, namespace, "y") or y
+        x_prime = apply_transform(settings.x_transform, namespace, "x")
+        y_prime = apply_transform(settings.y_transform, namespace, "y")
         return PlotDataSeries(x_prime, y_prime, None)
 
     def build_model(self, settings: PlotSettings) -> tuple[Callable, Basic]:
@@ -101,9 +101,7 @@ class ScatterLineStrategy(PlotStrategy):
     def run_fit(
         self, model: Callable, data: PlotDataSeries, p0: list[float]
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        popt, pcov = curve_fit(
-            model, data.x, data.y, p0=p0, method="lm", maxfev=10_000
-        )
+        popt, pcov = curve_fit(model, data.x, data.y, p0=p0, method="lm", maxfev=10_000)
         y_pred = model(data.x, *popt)
         return popt, pcov, data.y, y_pred
 
@@ -131,3 +129,4 @@ class ScatterLineStrategy(PlotStrategy):
             conf_lower=conf_lower,
             conf_upper=conf_upper,
         )
+

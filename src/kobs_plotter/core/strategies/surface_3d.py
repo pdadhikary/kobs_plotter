@@ -37,9 +37,9 @@ class Surface3DStrategy(PlotStrategy):
         y = np.array(df[settings.y_col], dtype=float)
         z = np.array(df[settings.z_col], dtype=float)
         namespace = {"x": x, "y": y, "z": z, "np": np}
-        x_prime = apply_transform(settings.x_transform, namespace, "x") or x
-        y_prime = apply_transform(settings.y_transform, namespace, "y") or y
-        z_prime = apply_transform(settings.z_transform, namespace, "z") or z
+        x_prime = apply_transform(settings.x_transform, namespace, "x")
+        y_prime = apply_transform(settings.y_transform, namespace, "y")
+        z_prime = apply_transform(settings.z_transform, namespace, "z")
         return PlotDataSeries(x_prime, y_prime, z_prime)
 
     def build_model(self, settings: PlotSettings) -> tuple[Callable, Basic]:
@@ -91,3 +91,4 @@ class Surface3DStrategy(PlotStrategy):
             settings=settings,
             diagnostic=PlotDiagnosticType.PLOT,
         )
+
