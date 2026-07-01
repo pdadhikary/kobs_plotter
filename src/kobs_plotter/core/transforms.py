@@ -25,10 +25,15 @@ def apply_transform(
     if not expr or not expr.strip():
         return None
 
+    # Restrict builtins so user-supplied expressions cannot invoke arbitrary
+    # Python (e.g. open, exec, __import__). Only the names in `namespace`
+    # — np and the axis arrays — are available. np.* functions remain
+    # accessible because np is exposed explicitly.
+    safe_globals: dict = {"__builtins__": {}}
     try:
-        result = eval(expr, namespace)
-    except Exception:
-        raise ValueError(f'Invalid transform: "{expr}"')
+        result = eval(expr, safe_globals, namespace)
+    except Exception as e:
+        raise ValueError(f'Invalid transform: "{expr}"') from e
 
     if not isinstance(result, ndarray):
         raise ValueError(

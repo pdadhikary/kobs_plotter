@@ -137,12 +137,21 @@ def _resolve_p0(
         "z": data.z if isinstance(data.z, np.ndarray) else np.array([]),
         "np": np,
     }
+    # Restrict builtins so user-supplied p0 expressions cannot invoke
+    # arbitrary Python. Only np and the axis arrays are in scope; np.*
+    # helpers (np.max, np.min, np.mean, ...) remain available.
+    safe_globals: dict = {"__builtins__": {}}
     p0 = []
     for expr in p0_exprs:
         if not expr or not expr.strip():
             result = 1.0
         else:
-            result = eval(expr, namespace)
+            try:
+                result = eval(expr, safe_globals, namespace)
+            except Exception as e:
+                raise ValueError(
+                    f'Invalid initial value expression: "{expr}"'
+                ) from e
 
         if result is not None:
             p0.append(float(result))
