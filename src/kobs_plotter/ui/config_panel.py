@@ -16,65 +16,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from kobs_plotter.core.models import PREDEFINED_MODELS, PREDEFINED_MODELS_3D
 from kobs_plotter.core.settings import PlotSettingsBuilder
 from kobs_plotter.ui.ui_helpers import divider, field_label, prefix_label, section_label
-
-PREDEFINED_MODELS = {
-    "Exponential Decay": {
-        "expr": "B - A * exp(-k * x)",
-        "params": ["A", "B", "k"],
-    },
-    "Exponential": {"expr": "A * exp(k * x)", "params": ["A", "k"]},
-    "Linear": {
-        "expr": "m * x + b",
-        "params": ["m", "b"],
-    },
-    "Quadratic": {
-        "expr": "a * x**2 + b * x + c",
-        "params": ["a", "b", "c"],
-    },
-    "Cubic": {
-        "expr": "a * x**3 + b * x**2 + c * x + d",
-        "params": ["a", "b", "c", "d"],
-    },
-    "Logarithmic": {
-        "expr": "a + b * log(x)",
-        "params": ["a", "b"],
-    },
-    "Sigmoidal": {
-        "expr": "L / (1 + exp(-k * (x - a)))",
-        "params": ["L", "a", "k"],
-    },
-}
-"""Predefined 2D curve fitting models keyed by display name."""
-
-PREDEFINED_MODELS_3D = {
-    "Plane": {
-        "expr": "A * x + B * y + C",
-        "params": ["A", "B", "C"],
-    },
-    "Parabolic": {
-        "expr": "A * x**2 + B * y**2 + C",
-        "params": ["A", "B", "C"],
-    },
-    "Gaussian": {
-        "expr": "A * exp(-((x - x0)**2 / (2*sx**2) + (y - y0)**2 / (2*sy**2)))",
-        "params": ["A", "x0", "sx", "y0", "sy"],
-    },
-    "Power Law": {
-        "expr": "A * x**m * y**n",
-        "params": ["A", "m", "n"],
-    },
-    "Arrhenius": {
-        "expr": "A * exp(-Ea / (R * x)) * y**n",
-        "params": ["A", "Ea", "R", "n"],
-    },
-    "Saddle": {
-        "expr": "A * x**2 - B * y**2 + C",
-        "params": ["A", "B", "C"],
-    },
-}
-"""Predefined 3D surface fitting models keyed by display name."""
 
 
 class ConfigPanel(QWidget):
@@ -280,12 +224,11 @@ class ConfigPanel(QWidget):
             self.formula_input.setText("")
             self.settings_builder.set_formula(None)
         elif name in models:
-            params = models[name]["params"]
-            expr = models[name]["expr"]
-            self.params_input.setText(", ".join(params))
-            self.settings_builder.set_params(params)
-            self.formula_input.setText(expr)
-            self.settings_builder.set_formula(expr)
+            model = models[name]
+            self.params_input.setText(", ".join(model.params))
+            self.settings_builder.set_params(list(model.params))
+            self.formula_input.setText(model.expr)
+            self.settings_builder.set_formula(model.expr)
 
     def on_reset(self) -> None:
         """
