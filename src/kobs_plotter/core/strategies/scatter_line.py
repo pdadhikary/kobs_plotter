@@ -12,10 +12,6 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
-from scipy import stats
-from scipy.optimize import curve_fit
-from sympy import Basic, lambdify, symbols, sympify
 
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.settings import PlotSettings, PlotType
@@ -24,6 +20,9 @@ from kobs_plotter.core.transforms import apply_transform
 from kobs_plotter.core.types import PlotDataSeries, PlotPayload
 
 if TYPE_CHECKING:
+    import pandas as pd
+    from sympy import Basic
+
     from kobs_plotter.core.modelling import FitResult
 
 
@@ -51,6 +50,8 @@ def confidence_band(
     n = len(x)
     p = len(popt)
     dof = n - p
+
+    from scipy import stats
 
     t_val = stats.t.ppf((1 + confidence) / 2, dof)
 
@@ -91,6 +92,8 @@ class ScatterLineStrategy(PlotStrategy):
         return PlotDataSeries(x_prime, y_prime, None)
 
     def build_model(self, settings: PlotSettings) -> tuple[Callable, Basic]:
+        from sympy import lambdify, symbols, sympify
+
         param_syms = symbols(settings.params)
         if not isinstance(param_syms, (list, tuple)):
             param_syms = [param_syms]
@@ -102,6 +105,8 @@ class ScatterLineStrategy(PlotStrategy):
     def run_fit(
         self, model: Callable, data: PlotDataSeries, p0: list[float]
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        from scipy.optimize import curve_fit
+
         popt, pcov = curve_fit(model, data.x, data.y, p0=p0, method="lm", maxfev=10_000)
         y_pred = model(data.x, *popt)
         return popt, pcov, data.y, y_pred

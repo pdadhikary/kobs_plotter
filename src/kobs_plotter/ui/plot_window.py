@@ -28,12 +28,9 @@ UI/UX hardening relative to the previous version:
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
-import matplotlib.pyplot as plt
 import numpy as np
-import scipy.stats as stats
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
-from matplotlib.figure import Figure
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
@@ -42,7 +39,10 @@ from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.plotting import PlotPayload
 from kobs_plotter.core.settings import PlotType
 
-Renderer = Callable[[Figure, PlotPayload], None]
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+
+type Renderer = Callable[[Figure, PlotPayload], None]
 
 
 def _add_result_text(figure: Figure, ax, result_string: str) -> None:
@@ -153,6 +153,8 @@ def _render_surface_residual(figure: Figure, payload: PlotPayload) -> None:
 
 def _render_qq(figure: Figure, payload: PlotPayload) -> None:
     """Render a normal Q-Q plot of the fit residuals (guarding empty input)."""
+    import scipy.stats as stats
+
     settings = payload.settings
     ax = figure.add_subplot(111)
     residuals = payload.residuals
@@ -210,6 +212,9 @@ class PlotWindow(QMainWindow):
     """
 
     def __init__(self, parent=None, window_title: str = "Plot") -> None:
+        from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
+        from matplotlib.figure import Figure
+
         super().__init__(parent)
         self.setObjectName(window_title)
         self.setWindowTitle(window_title)
@@ -246,6 +251,8 @@ class PlotWindow(QMainWindow):
         state outside this window.
         """
         settings = payload.settings
+        import matplotlib.pyplot as plt
+
         with plt.style.context(settings.plot_theme):
             self._clear()
             renderer = _RENDERERS.get(
@@ -256,11 +263,15 @@ class PlotWindow(QMainWindow):
 
     def _clear(self) -> None:
         """Clear the figure, applying the current theme's face color."""
+        import matplotlib.pyplot as plt
+
         self.figure.clear()
         self.figure.set_facecolor(plt.rcParams["figure.facecolor"])
 
     def on_reset(self) -> None:
         """Reset the window to an empty-state with a helpful placeholder."""
+        import matplotlib.pyplot as plt
+
         with plt.style.context("ggplot"):
             self._clear()
             ax = self.figure.add_subplot(111)

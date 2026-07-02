@@ -9,7 +9,6 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 import numpy as np
-from sympy import latex
 
 from kobs_plotter.core.settings import PlotSettings
 from kobs_plotter.core.strategies import STRATEGIES
@@ -191,6 +190,8 @@ def fit(data: PlotDataSeries, settings: PlotSettings) -> FitResult:
     popt, pcov, observed, predicted = strategy.run_fit(model, data, p0)
     gof = _goodness_of_fit(observed, predicted, len(p0))
     perr = np.sqrt(np.diag(pcov))
+
+    from sympy import latex
 
     return FitResult(
         formula_latex=latex(expr),

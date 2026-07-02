@@ -1,5 +1,3 @@
-import pandas as pd
-
 from kobs_plotter.core.settings import PlotSettings
 from kobs_plotter.core.strategies import STRATEGIES
 from kobs_plotter.core.types import PlotDataSeries
@@ -23,6 +21,8 @@ def load_data(settings: PlotSettings) -> PlotDataSeries:
         FileNotFoundError: if the Excel file does not exist.
         RuntimeError: if the Excel file cannot be read.
     """
+    import pandas as pd
+
     try:
         df = pd.read_excel(settings.data_path, sheet_name=settings.sheet_name)
     except FileNotFoundError as e:

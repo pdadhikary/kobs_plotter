@@ -21,8 +21,6 @@ Hardening relative to the previous version:
 
 from __future__ import annotations
 
-import matplotlib
-import matplotlib.pyplot as plt
 from PySide6.QtWidgets import (
     QComboBox,
     QLineEdit,
@@ -57,12 +55,16 @@ _CURATED_THEMES = [
 
 def _available_themes() -> list[str]:
     """Curated themes that actually exist in the running matplotlib."""
+    import matplotlib.pyplot as plt
+
     avail = set(plt.style.available)
     return [t for t in _CURATED_THEMES if t in avail]
 
 
 def _available_colormaps() -> list[str]:
     """Subset of matplotlib's installed colormaps, kept short for the combo."""
+    import matplotlib
+
     cms = list(matplotlib.colormaps())
     curated = [
         "viridis",

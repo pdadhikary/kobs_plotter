@@ -14,8 +14,8 @@ this panel.
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
-import pandas as pd
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -41,13 +41,17 @@ from kobs_plotter.ui.ui_helpers import (
 )
 from kobs_plotter.ui.viewmodel import AppState
 
+if TYPE_CHECKING:
+    import pandas as pd
+
 log = logging.getLogger(__name__)
 
 
 # Sheet-read result returned by the background worker: (sheets, error).
-_SheetRead = tuple[list[str], Exception | None]
-# Preview-read result: (df, error). df is None on failure.
-_PreviewRead = tuple[pd.DataFrame | None, Exception | None]
+type _SheetRead = tuple[list[str], Exception | None]
+# Preview-read result: (df, error). df is None on failure. A PEP 695 `type`
+# alias is evaluated lazily, so defining it does not import pandas.
+type _PreviewRead = tuple[pd.DataFrame | None, Exception | None]
 
 
 class _SheetListWorker(QThread):
@@ -60,6 +64,8 @@ class _SheetListWorker(QThread):
         self._path = path
 
     def run(self) -> None:  # noqa: D401 - QThread entry point
+        import pandas as pd
+
         try:
             xl = pd.ExcelFile(self._path)
             self.finished.emit(list(xl.sheet_names), None)
@@ -79,6 +85,8 @@ class _PreviewWorker(QThread):
         self._n_rows = n_rows
 
     def run(self) -> None:  # noqa: D401 - QThread entry point
+        import pandas as pd
+
         try:
             df = pd.read_excel(self._path, sheet_name=self._sheet, nrows=self._n_rows)
             self.finished.emit(df, None)
@@ -257,6 +265,8 @@ class FilePanel(QWidget):
         if not self._path or not sheet_name:
             return
         self.state.set_sheet_name(sheet_name)
+        import pandas as pd
+
         try:
             df_header = pd.read_excel(self._path, sheet_name=sheet_name, nrows=0)
         except (pd.errors.ParserError, pd.errors.EmptyDataError, OSError) as e:

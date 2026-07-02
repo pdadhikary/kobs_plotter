@@ -23,10 +23,6 @@ from __future__ import annotations
 
 import io
 
-import matplotlib
-
-matplotlib.use("Agg")  # noqa: E402 - LaTeX render uses an offscreen figure
-import matplotlib.pyplot as plt
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
@@ -50,6 +46,10 @@ def _render_latex_pixmap(latex: str, width: int = 320) -> object | None:
     mathtext cannot parse a SymPy expression with custom symbols). The
     caller then falls back to a plain-text label.
     """
+    import matplotlib
+
+    matplotlib.use("Agg")  # noqa: E402 - LaTeX render uses an offscreen figure
+    import matplotlib.pyplot as plt
     from PySide6.QtGui import QPixmap
 
     try:

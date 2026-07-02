@@ -38,7 +38,6 @@ from __future__ import annotations
 
 import logging
 
-import pandas as pd
 from PySide6.QtCore import QObject, QSettings, QThread, Signal, Slot
 
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
@@ -237,6 +236,8 @@ def _translate_exception(exc: Exception) -> tuple[str, str]:
     so traceback noise never reaches the end user.
     """
     import traceback
+
+    import pandas as pd
 
     detail = f"{type(exc).__name__}: {exc}\n\n{traceback.format_exc()}"
 
