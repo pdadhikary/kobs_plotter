@@ -65,11 +65,11 @@ _APP = "kobs-plotter"
 # Citation text shown in the About dialog. Kept in sync with README.md /
 # CITATION.cff. Update on every release.
 _CITATION = (
-    "Adhikary, P. D. (2026). Kobs-Plotter (Version 0.4.1) [Software]. "
+    "Adhikary, P. D. (2026). Kobs-Plotter (Version 0.4.2) [Software]. "
     "GitHub. https://github.com/pdadhikary/kobs_plotter"
 )
 _ABOUT_TEXT = (
-    "<h3>Kobs-Plotter 0.4.1</h3>"
+    "<h3>Kobs-Plotter 0.4.2</h3>"
     "<p>A desktop application for scientific nonlinear curve fitting "
     "and publication-ready visualization.</p>"
     "<p>Built with PySide6, NumPy, Pandas, SciPy, Matplotlib, and SymPy.</p>"
