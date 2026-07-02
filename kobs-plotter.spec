@@ -39,6 +39,11 @@ _icon = (
 
 # Modules pulled in transitively by the scientific stack that kobs-plotter
 # never uses. Excluding shrinks the bundle and trims cold-start import work.
+# NOTE: stdlib test/build modules (unittest, doctest, pydoc, setuptools, pip,
+# distutils) and matplotlib's file-output backends (pdf/svg/ps/cairo) are
+# intentionally NOT excluded — pyparsing imports unittest at module load
+# (pulled in by matplotlib), and the file backends back the plot window's
+# Save-Figure export to those formats.
 _excludes = [
     # Alternative GUI toolkits / bindings not used (PySide6 only).
     "tkinter",
@@ -46,7 +51,7 @@ _excludes = [
     "PyQt5",
     "PyQt6",
     "PySide2",
-    # Unused matplotlib backends — kobs-plotter uses QtAgg + Agg only.
+    # Unused matplotlib *interactive* backends — kobs-plotter uses QtAgg + Agg.
     "matplotlib.backends.backend_tkagg",
     "matplotlib.backends.backend_gtk3agg",
     "matplotlib.backends.backend_gtk4agg",
@@ -54,11 +59,7 @@ _excludes = [
     "matplotlib.backends.backend_wx",
     "matplotlib.backends.backend_qt5agg",
     "matplotlib.backends.backend_macosx",
-    "matplotlib.backends.backend_cairo",
-    "matplotlib.backends.backend_pdf",
-    "matplotlib.backends.backend_svg",
-    "matplotlib.backends.backend_ps",
-    # Test / notebook / dev infrastructure pulled in transitively.
+    # Dev / notebook infrastructure pulled in transitively (not used at runtime).
     "pytest",
     "IPython",
     "jupyter",
@@ -66,16 +67,8 @@ _excludes = [
     "jupyter_core",
     "notebook",
     "jedi",
-    "pydoc",
-    "doctest",
-    "unittest",
-    "setuptools",
-    "pip",
-    "distutils",
-    # Test / example subpackages of the scientific stack.
+    # Test subpackages of the scientific stack — never imported at runtime.
     "numpy.tests",
-    "numpy.distutils",
-    "numpy.f2py",
     "pandas.tests",
     "scipy.tests",
     "scipy.linalg.tests",
