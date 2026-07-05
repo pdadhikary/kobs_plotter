@@ -31,6 +31,8 @@ def _minimal_settings():
         line_color="red",
         line_style="-",
         colormap="viridis",
+        x_axis_scale="linear",
+        y_axis_scale="linear",
     )
 
 
@@ -45,6 +47,7 @@ def test_reset_shows_placeholder(qtbot):
 
 def test_qq_handles_empty_residuals(qtbot):
     import matplotlib.pyplot as plt
+
     fig = plt.figure()
     fig.add_subplot(111)
     payload = PlotPayload(

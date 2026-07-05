@@ -17,6 +17,9 @@ import numpy as np
 
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
 
+AxisScale = Literal["linear", "log", "symlog", "logit", "asinh"]
+
+
 class PlotType(Enum):
     """Enum representing the type of plot to generate."""
 

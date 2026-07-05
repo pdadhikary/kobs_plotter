@@ -6,6 +6,7 @@ and the PlotSettingsBuilder for accumulating UI state before computation.
 """
 
 from kobs_plotter.core.defaults import (
+    DEFAULT_AXIS_SCALE,
     DEFAULT_COLORMAP,
     DEFAULT_LINE_COLOR,
     DEFAULT_LINE_STYLE,
@@ -61,6 +62,8 @@ class PlotSettingsBuilder:
         self._point_color: str = DEFAULT_POINT_COLOR
         self._line_color: str = DEFAULT_LINE_COLOR
         self._line_style: str = DEFAULT_LINE_STYLE
+        self._x_axis_scale: AxisScale = DEFAULT_AXIS_SCALE
+        self._y_axis_scale: AxisScale = DEFAULT_AXIS_SCALE
         self._colormap: str = DEFAULT_COLORMAP
 
     def set_plot_type(self, plot_type: PlotType) -> "PlotSettingsBuilder":
@@ -217,6 +220,24 @@ class PlotSettingsBuilder:
         self._line_style = style
         return self
 
+    def set_x_axis_scale(self, scale: AxisScale) -> "PlotSettingsBuilder":
+        """
+        Set the scale of the x axis.
+
+        Accepted values: 'linear', 'log', 'symlog', 'logit', 'asinh'.
+        """
+        self._x_axis_scale = scale
+        return self
+
+    def set_y_axis_scale(self, scale: AxisScale) -> "PlotSettingsBuilder":
+        """
+        Set the scale of the y axis.
+
+        Accepted values: 'linear', 'log', 'symlog', 'logit', 'asinh'.
+        """
+        self._y_axis_scale = scale
+        return self
+
     def set_colormap(self, colormap: str) -> "PlotSettingsBuilder":
         """Set the colormap for 3D surface plots. Accepts any valid matplotlib colormap name."""
         self._colormap = colormap
@@ -334,5 +355,7 @@ class PlotSettingsBuilder:
             point_color=self._point_color,
             line_color=self._line_color,
             line_style=self._line_style,
+            x_axis_scale=self._x_axis_scale,
+            y_axis_scale=self._y_axis_scale,
             colormap=self._colormap,
         )

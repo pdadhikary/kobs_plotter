@@ -6,6 +6,8 @@ PlotPanel (default widget values) import from here so the two cannot
 silently drift out of sync.
 """
 
+from kobs_plotter.core.types import AxisScale
+
 DEFAULT_THEME = "ggplot"
 """Default matplotlib style theme applied to plot windows."""
 
@@ -17,6 +19,9 @@ DEFAULT_LINE_COLOR = "red"
 
 DEFAULT_LINE_STYLE = "-"
 """Default line style for the fitted trend line (solid)."""
+
+DEFAULT_AXIS_SCALE: AxisScale = "linear"
+"""Default axis scale for plot."""
 
 DEFAULT_COLORMAP = "viridis"
 """Default colormap for 3D surface plots."""

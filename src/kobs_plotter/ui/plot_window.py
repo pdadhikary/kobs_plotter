@@ -68,6 +68,8 @@ def _render_scatter_plot(figure: Figure, payload: PlotPayload) -> None:
     """Render a 2D scatter plot with fitted curve and confidence band."""
     settings = payload.settings
     ax = figure.add_subplot(111)
+    ax.set_xscale(settings.x_axis_scale)
+    ax.set_yscale(settings.y_axis_scale)
     ax.scatter(payload.x, payload.y, color=settings.point_color, zorder=5)
     ax.plot(
         payload.x_fit,
@@ -95,12 +97,8 @@ def _render_surface_plot(figure: Figure, payload: PlotPayload) -> None:
     """Render a 3D scatter plot with fitted surface and projected contour."""
     settings = payload.settings
     ax = figure.add_subplot(111, projection="3d")
-    ax.scatter(
-        payload.x, payload.y, payload.z, alpha=0.6, color=settings.point_color, zorder=5
-    )
-    ax.plot_surface(
-        payload.x_fit, payload.y_fit, payload.z_fit, cmap=settings.colormap, alpha=0.6
-    )
+    ax.scatter(payload.x, payload.y, payload.z, alpha=0.6, color=settings.point_color, zorder=5)
+    ax.plot_surface(payload.x_fit, payload.y_fit, payload.z_fit, cmap=settings.colormap, alpha=0.6)
     ax.contour(
         payload.x_fit,
         payload.y_fit,
@@ -123,9 +121,7 @@ def _render_scatter_residual(figure: Figure, payload: PlotPayload) -> None:
     settings = payload.settings
     ax = figure.add_subplot(111)
     ax.scatter(payload.x, payload.residuals, color=settings.point_color, zorder=5)
-    ax.axhline(
-        y=0, label="Baseline", color=settings.line_color, linestyle=settings.line_style
-    )
+    ax.axhline(y=0, label="Baseline", color=settings.line_color, linestyle=settings.line_style)
     ax.set_title(settings.title or "")
     ax.set_xlabel(settings.x_label or "")
     ax.set_ylabel("Residuals")
@@ -136,9 +132,7 @@ def _render_surface_residual(figure: Figure, payload: PlotPayload) -> None:
     """Render a 3D residual scatter plot against the two independent variables."""
     settings = payload.settings
     ax = figure.add_subplot(111, projection="3d")
-    ax.scatter(
-        payload.x, payload.y, payload.residuals, color=settings.point_color, zorder=5
-    )
+    ax.scatter(payload.x, payload.y, payload.residuals, color=settings.point_color, zorder=5)
 
     xlim, ylim = ax.get_xlim(), ax.get_ylim()
     xx, yy = np.meshgrid(xlim, ylim)
@@ -255,9 +249,7 @@ class PlotWindow(QMainWindow):
 
         with plt.style.context(settings.plot_theme):
             self._clear()
-            renderer = _RENDERERS.get(
-                (settings.plot_type, payload.diagnostic), _render_unsupported
-            )
+            renderer = _RENDERERS.get((settings.plot_type, payload.diagnostic), _render_unsupported)
             renderer(self.figure, payload)
             self.canvas.draw()
 

@@ -29,12 +29,14 @@ from PySide6.QtWidgets import (
 )
 
 from kobs_plotter.core.defaults import (
+    DEFAULT_AXIS_SCALE,
     DEFAULT_COLORMAP,
     DEFAULT_LINE_COLOR,
     DEFAULT_LINE_STYLE,
     DEFAULT_POINT_COLOR,
     DEFAULT_THEME,
 )
+from kobs_plotter.core.types import AxisScale
 from kobs_plotter.ui.ui_helpers import divider, field_label, section_label
 from kobs_plotter.ui.viewmodel import AppState
 from kobs_plotter.ui.widgets import CollapsibleSection, ColorSwatchButton, safe_set_current
@@ -93,6 +95,7 @@ class PlotPanel(QWidget):
 
         self._themes = _available_themes()
         self._colormaps = _available_colormaps()
+        self._axis_scales: list[AxisScale] = ["linear", "log", "symlog", "logit", "asinh"]
 
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
@@ -170,6 +173,23 @@ class PlotPanel(QWidget):
         self.line_style_widget.add_widget(self.linestyle_combo)
         layout.addWidget(self.line_style_widget)
 
+        # ── Axis Style ────────────────────────────────────────────
+        self.axis_scale_widget = CollapsibleSection()
+        self.axis_scale_widget.add_widget(section_label("Axis Scale"))
+        self.axis_scale_widget.add_widget(field_label("X Axis Scale"))
+        self.x_axis_scale_combo = QComboBox()
+        self.x_axis_scale_combo.addItems(self._axis_scales)
+        self.x_axis_scale_combo.currentTextChanged.connect(self.state.set_x_axis_scale)
+        safe_set_current(self.x_axis_scale_combo, DEFAULT_AXIS_SCALE)
+        self.axis_scale_widget.add_widget(self.x_axis_scale_combo)
+        self.axis_scale_widget.add_widget(field_label("Y Axis Scale"))
+        self.y_axis_scale_combo = QComboBox()
+        self.y_axis_scale_combo.addItems(self._axis_scales)
+        self.y_axis_scale_combo.currentTextChanged.connect(self.state.set_y_axis_scale)
+        safe_set_current(self.y_axis_scale_combo, DEFAULT_AXIS_SCALE)
+        self.axis_scale_widget.add_widget(self.y_axis_scale_combo)
+        layout.addWidget(self.axis_scale_widget)
+
         # ── Surface colormap (3D) ─────────────────────────────────
         self.colormap_widget = CollapsibleSection()
         self.colormap_widget.add_widget(section_label("Surface style"))
@@ -190,6 +210,7 @@ class PlotPanel(QWidget):
         self.is_3d = is_3d
         self.z_label_widget.setVisible(is_3d)
         self.line_style_widget.setVisible(not is_3d)
+        self.axis_scale_widget.setVisible(not is_3d)
         self.colormap_widget.setVisible(is_3d)
 
     # ── reset ─────────────────────────────────────────────────────
@@ -202,6 +223,8 @@ class PlotPanel(QWidget):
         self.scatter_color.set_value(DEFAULT_POINT_COLOR)
         self.line_color.set_value(DEFAULT_LINE_COLOR)
         safe_set_current(self.linestyle_combo, DEFAULT_LINE_STYLE)
+        safe_set_current(self.x_axis_scale_combo, DEFAULT_AXIS_SCALE)
+        safe_set_current(self.y_axis_scale_combo, DEFAULT_AXIS_SCALE)
         safe_set_current(self.colormap_combo, DEFAULT_COLORMAP)
         self.is_3d = False
         self.z_label_widget.setVisible(False)

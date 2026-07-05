@@ -122,9 +122,7 @@ class MainWindow(QMainWindow):
         self.plot_panel: PlotPanel = self.reset_coordinator.register(
             PlotPanel(self.controller.state)
         )
-        self.results_panel: ResultsPanel = self.reset_coordinator.register(
-            ResultsPanel()
-        )
+        self.results_panel: ResultsPanel = self.reset_coordinator.register(ResultsPanel())
 
         self.splitter.addWidget(wrap_scroll(self.file_panel))
         self.splitter.addWidget(wrap_scroll(self.config_panel))
@@ -156,9 +154,7 @@ class MainWindow(QMainWindow):
 
         # compute-button enable state follows readiness.
         self.controller.state.readyChanged.connect(self._update_button_state)
-        self.controller.state.missingFieldsChanged.connect(
-            self._update_status_missing_fields
-        )
+        self.controller.state.missingFieldsChanged.connect(self._update_status_missing_fields)
         # Initial plot-type sync.
         self.controller.state.set_plot_type(PlotType.SCATTER_LINE)
         self._update_button_state(self.controller.state.is_ready())
@@ -215,9 +211,7 @@ class MainWindow(QMainWindow):
         self.compute_btn.setDefault(True)
         self.compute_btn.setAutoDefault(True)
         self.compute_btn.setToolTip("Fit and render the main plot (Ctrl+Enter)")
-        self.compute_btn.clicked.connect(
-            lambda: self.controller.compute(PlotDiagnosticType.PLOT)
-        )
+        self.compute_btn.clicked.connect(lambda: self.controller.compute(PlotDiagnosticType.PLOT))
 
         for w in (self.reset_btn, self.qq_btn, self.residual_btn, self.compute_btn):
             self.controller.register_compute_button(w)
@@ -263,9 +257,7 @@ class MainWindow(QMainWindow):
 
         resid_action = QAction("Show &Residual plot", self)
         resid_action.setShortcut(QKeySequence("Ctrl+Shift+R"))
-        resid_action.triggered.connect(
-            lambda: self.controller.compute(PlotDiagnosticType.RESIDUAL)
-        )
+        resid_action.triggered.connect(lambda: self.controller.compute(PlotDiagnosticType.RESIDUAL))
         plot_menu.addAction(resid_action)
 
         plot_menu.addSeparator()
@@ -294,7 +286,12 @@ class MainWindow(QMainWindow):
     def _on_compute_finished(self) -> None:
         self.progress.setVisible(False)
         self._update_button_state(self.controller.state.is_ready())
-        if self.status_label.text() in {"Fitting…", "Computing residuals…", "Computing Q-Q plot…", "Computing…"}:
+        if self.status_label.text() in {
+            "Fitting…",
+            "Computing residuals…",
+            "Computing Q-Q plot…",
+            "Computing…",
+        }:
             self.status_label.setText("Done")
 
     def _on_result_ready(self, result, payload, params) -> None:  # noqa: ANN001
@@ -320,9 +317,7 @@ class MainWindow(QMainWindow):
     def _on_validation_failed(self, missing: list) -> None:  # noqa: ANN001
         if not missing:
             return
-        show_warning(
-            self, "Cannot generate plot", "Missing required fields: " + ", ".join(missing)
-        )
+        show_warning(self, "Cannot generate plot", "Missing required fields: " + ", ".join(missing))
         self.status_label.setText("Missing: " + ", ".join(missing))
 
     # ── panel inter-panel wiring ─────────────────────────────────
