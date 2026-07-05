@@ -1,6 +1,6 @@
 [project]
 name = "kobs-plotter"
-version = "0.4.2"
+version = "0.4.3"
 description = "A desktop application for scientific curve fitting and publication-ready visualization"
 readme = "README.md"
 requires-python = ">=3.12"
