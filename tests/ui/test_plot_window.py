@@ -4,8 +4,7 @@ fallback renderer, and reset."""
 import numpy as np
 
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
-from kobs_plotter.core.settings import PlotSettings
-from kobs_plotter.core.types import PlotPayload
+from kobs_plotter.core.types import PlotPayload, PlotSettings
 from kobs_plotter.ui.plot_window import PlotWindow, _render_qq, _render_unsupported
 
 

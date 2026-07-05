@@ -10,9 +10,11 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from kobs_plotter.core.settings import PlotSettings
 from kobs_plotter.core.strategies import STRATEGIES
-from kobs_plotter.core.types import PlotDataSeries  # noqa: F401
+from kobs_plotter.core.types import (
+    PlotDataSeries,  # noqa: F401
+    PlotSettings,
+)
 
 
 @dataclass(frozen=True)
@@ -151,9 +153,7 @@ def _resolve_p0(
             try:
                 result = eval(expr, safe_globals, namespace)
             except Exception as e:
-                raise ValueError(
-                    f'Invalid initial value expression: "{expr}"'
-                ) from e
+                raise ValueError(f'Invalid initial value expression: "{expr}"') from e
 
         if result is not None:
             p0.append(float(result))

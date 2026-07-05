@@ -14,10 +14,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
-from kobs_plotter.core.settings import PlotSettings, PlotType
 from kobs_plotter.core.strategies.base import PlotStrategy
 from kobs_plotter.core.transforms import apply_transform
-from kobs_plotter.core.types import PlotDataSeries, PlotPayload
+from kobs_plotter.core.types import PlotDataSeries, PlotPayload, PlotSettings, PlotType
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -63,9 +62,7 @@ def confidence_band(
             popt_plus[j] += eps
             popt_minus = popt.copy()
             popt_minus[j] -= eps
-            jacobian[i, j] = (model(xi, *popt_plus) - model(xi, *popt_minus)) / (
-                2 * eps
-            )
+            jacobian[i, j] = (model(xi, *popt_plus) - model(xi, *popt_minus)) / (2 * eps)
 
     var_fit = np.einsum("ij,jk,ik->i", jacobian, pcov, jacobian)
     se_fit = np.sqrt(np.maximum(var_fit, 0))
@@ -135,4 +132,3 @@ class ScatterLineStrategy(PlotStrategy):
             conf_lower=conf_lower,
             conf_upper=conf_upper,
         )
-

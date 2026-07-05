@@ -1,18 +1,65 @@
 """
-Dependency-free value types shared across the core layer.
+Shared value types for the core layer.
 
-These dataclasses are pure data-transfer objects with no behaviour and
-no imports from other kobs_plotter modules, so they can be imported
-freely by data_loader, modelling, plotting, and strategies without
-introducing import cycles.
+These are pure data-transfer objects plus the small enums/aliases
+(PlotType, AxisScale) that the DTOs reference. The module depends only
+on kobs_plotter.core.diagnostics, so it can be imported freely by
+data_loader, modelling, plotting, defaults, and strategies without
+introducing import cycles. settings.py re-exports PlotSettings and
+PlotType from here for back-compat with existing call sites.
 """
 
 from dataclasses import dataclass
+from enum import Enum, auto
+from typing import Literal
 
 import numpy as np
 
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
-from kobs_plotter.core.settings import PlotSettings
+
+class PlotType(Enum):
+    """Enum representing the type of plot to generate."""
+
+    """2D scatter plot with a fitted trend line."""
+    SCATTER_LINE = auto()
+    """3D surface plot with scatter points."""
+    SURFACE_3D = auto()
+
+
+@dataclass(frozen=True)
+class PlotSettings:
+    """
+    immutable snapshot of all user-configured settings passed to the
+    core computation and plotting layer.
+
+    this object is constructed by plotsettingsbuilder.build() and should
+    never be mutated after creation. all fields are either required or
+    explicitly optional to make missing values visible at the type level.
+    """
+
+    plot_type: PlotType
+    data_path: str
+    sheet_name: str
+    x_col: str
+    y_col: str
+    z_col: str | None
+    x_transform: str | None
+    y_transform: str | None
+    z_transform: str | None
+    params: tuple[str, ...]
+    formula: str
+    p0: tuple[str, ...]
+    plot_theme: str
+    title: str | None
+    x_label: str | None
+    y_label: str | None
+    z_label: str | None
+    x_axis_scale: AxisScale
+    y_axis_scale: AxisScale
+    point_color: str
+    line_color: str
+    line_style: str
+    colormap: str
 
 
 @dataclass(frozen=True)

@@ -5,9 +5,6 @@ Defines the PlotType enum, the immutable PlotSettings dataclass,
 and the PlotSettingsBuilder for accumulating UI state before computation.
 """
 
-from dataclasses import dataclass
-from enum import Enum, auto
-
 from kobs_plotter.core.defaults import (
     DEFAULT_COLORMAP,
     DEFAULT_LINE_COLOR,
@@ -15,49 +12,7 @@ from kobs_plotter.core.defaults import (
     DEFAULT_POINT_COLOR,
     DEFAULT_THEME,
 )
-
-
-class PlotType(Enum):
-    """Enum representing the type of plot to generate."""
-
-    """2D scatter plot with a fitted trend line."""
-    SCATTER_LINE = auto()
-    """3D surface plot with scatter points."""
-    SURFACE_3D = auto()
-
-
-@dataclass(frozen=True)
-class PlotSettings:
-    """
-    immutable snapshot of all user-configured settings passed to the
-    core computation and plotting layer.
-
-    this object is constructed by plotsettingsbuilder.build() and should
-    never be mutated after creation. all fields are either required or
-    explicitly optional to make missing values visible at the type level.
-    """
-
-    plot_type: PlotType
-    data_path: str
-    sheet_name: str
-    x_col: str
-    y_col: str
-    z_col: str | None
-    x_transform: str | None
-    y_transform: str | None
-    z_transform: str | None
-    params: tuple[str, ...]
-    formula: str
-    p0: tuple[str, ...]
-    plot_theme: str
-    title: str | None
-    x_label: str | None
-    y_label: str | None
-    z_label: str | None
-    point_color: str
-    line_color: str
-    line_style: str
-    colormap: str
+from kobs_plotter.core.types import AxisScale, PlotSettings, PlotType
 
 
 class PlotSettingsBuilder:

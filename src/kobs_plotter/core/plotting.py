@@ -11,9 +11,8 @@ import numpy as np
 
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.modelling import FitResult
-from kobs_plotter.core.settings import PlotSettings
 from kobs_plotter.core.strategies import STRATEGIES
-from kobs_plotter.core.types import PlotDataSeries, PlotPayload  # noqa: F401
+from kobs_plotter.core.types import PlotDataSeries, PlotPayload, PlotSettings  # noqa: F401
 
 
 def plot(

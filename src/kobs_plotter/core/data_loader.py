@@ -1,6 +1,5 @@
-from kobs_plotter.core.settings import PlotSettings
 from kobs_plotter.core.strategies import STRATEGIES
-from kobs_plotter.core.types import PlotDataSeries
+from kobs_plotter.core.types import PlotDataSeries, PlotSettings
 
 
 def load_data(settings: PlotSettings) -> PlotDataSeries:

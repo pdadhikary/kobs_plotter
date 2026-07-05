@@ -21,8 +21,7 @@ if TYPE_CHECKING:
     from sympy import Basic
 
     from kobs_plotter.core.modelling import FitResult
-    from kobs_plotter.core.settings import PlotSettings, PlotType
-    from kobs_plotter.core.types import PlotDataSeries, PlotPayload
+    from kobs_plotter.core.types import PlotDataSeries, PlotPayload, PlotSettings, PlotType
 
 
 class PlotStrategy(ABC):
@@ -35,9 +34,7 @@ class PlotStrategy(ABC):
     """Symbol used for the dependent variable in the result string ('y' or 'z')."""
 
     @abstractmethod
-    def load_series(
-        self, settings: PlotSettings, df: pd.DataFrame
-    ) -> PlotDataSeries:
+    def load_series(self, settings: PlotSettings, df: pd.DataFrame) -> PlotDataSeries:
         """Extract the (optionally transformed) data series from the loaded frame."""
 
     @abstractmethod
@@ -64,9 +61,7 @@ class PlotStrategy(ABC):
         are short-circuited by the plot() dispatcher into a minimal payload.
         """
 
-    def format_result_string(
-        self, settings: PlotSettings, result: FitResult
-    ) -> str:
+    def format_result_string(self, settings: PlotSettings, result: FitResult) -> str:
         """Format fit results into the multi-line string shown on the plot."""
         parameter_lines = [
             f"{param}={opt:.4f} $\\pm$ {err:.3f}"
@@ -91,4 +86,3 @@ class PlotStrategy(ABC):
             *gof_lines,
         ]
         return "\n".join(lines)
-

@@ -15,10 +15,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
-from kobs_plotter.core.settings import PlotSettings, PlotType
 from kobs_plotter.core.strategies.base import PlotStrategy
 from kobs_plotter.core.transforms import apply_transform
-from kobs_plotter.core.types import PlotDataSeries, PlotPayload
+from kobs_plotter.core.types import PlotDataSeries, PlotPayload, PlotSettings, PlotType
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -65,9 +64,7 @@ class Surface3DStrategy(PlotStrategy):
         from scipy.optimize import curve_fit
 
         z = data.z if isinstance(data.z, np.ndarray) else np.array([])
-        popt, pcov = curve_fit(
-            model, (data.x, data.y), z, p0=p0, method="lm", maxfev=10_000
-        )
+        popt, pcov = curve_fit(model, (data.x, data.y), z, p0=p0, method="lm", maxfev=10_000)
         z_pred = model((data.x, data.y), *popt)
         return popt, pcov, z, z_pred
 
@@ -96,4 +93,3 @@ class Surface3DStrategy(PlotStrategy):
             settings=settings,
             diagnostic=PlotDiagnosticType.PLOT,
         )
-
