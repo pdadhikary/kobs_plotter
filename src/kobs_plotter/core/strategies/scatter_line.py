@@ -81,8 +81,8 @@ class ScatterLineStrategy(PlotStrategy):
     dependent_label = "y"
 
     def load_series(self, settings: PlotSettings, df: pd.DataFrame) -> PlotDataSeries:
-        x = np.array(df[settings.x_col], dtype=float)
-        y = np.array(df[settings.y_col], dtype=float)
+        x = np.array(df[settings.x_col].dropna(), dtype=float)
+        y = np.array(df[settings.y_col].dropna(), dtype=float)
         namespace = {"x": x, "y": y, "z": None, "np": np}
         x_prime = apply_transform(settings.x_transform, namespace, "x")
         y_prime = apply_transform(settings.y_transform, namespace, "y")
