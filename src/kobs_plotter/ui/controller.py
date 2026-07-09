@@ -43,7 +43,7 @@ from PySide6.QtCore import QObject, QSettings, QThread, Signal, Slot
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.modelling import FitResult
 from kobs_plotter.core.service import ComputeService
-from kobs_plotter.core.types import PlotPayload
+from kobs_plotter.core.types import PlotPayload, PlotType
 from kobs_plotter.ui.plot_window import PlotWindow
 from kobs_plotter.ui.viewmodel import AppState
 
@@ -157,7 +157,15 @@ class Controller(QObject):
 
     @Slot(object, object)
     def _on_succeeded(self, result: FitResult, payload: PlotPayload) -> None:
-        params = list(self.state._params) if self.state._params else []
+        # Multivar mode does not carry user-entered parameter names (the
+        # model is fixed). Synthesise B_0..B_n from the current X-column
+        # count so the results panel labels match the fit.
+        state = self.state
+        if state._plot_type == PlotType.MULTIVARIABLE_REGRESSION:
+            n = len(state._x_cols or [])
+            params = [f"B_{i}" for i in range(n + 1)]
+        else:
+            params = list(state._params) if state._params else []
         self.resultReady.emit(result, payload, params)
 
     @Slot(object)

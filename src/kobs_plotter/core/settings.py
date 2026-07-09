@@ -65,6 +65,9 @@ class PlotSettingsBuilder:
         self._x_axis_scale: AxisScale = DEFAULT_AXIS_SCALE
         self._y_axis_scale: AxisScale = DEFAULT_AXIS_SCALE
         self._colormap: str = DEFAULT_COLORMAP
+        # Multivariable regression state.
+        self._x_cols: list[str] | None = None
+        self._x_transforms: list[str | None] | None = None
 
     def set_plot_type(self, plot_type: PlotType) -> "PlotSettingsBuilder":
         """Set the plot type (2D scatter/line or 3D surface)."""
@@ -130,6 +133,51 @@ class PlotSettingsBuilder:
         with z as the input array.
         """
         self._z_transform = transform
+        return self
+
+    def set_x_cols(self, x_cols: list[str] | None) -> "PlotSettingsBuilder":
+        """
+        Set the independent variable columns for multivariable regression.
+
+        Each entry is a column header from the loaded sheet. The order
+        determines the coefficient labelling (B_1 for the first, B_2 for
+        the second, etc.). Pass an empty list or None to clear.
+
+        When the number of entries changes the per-column transform list
+        is resized to match (new slots default to None, trailing slots
+        are dropped) so the two never drift apart.
+        """
+        cols = list(x_cols) if x_cols else None
+        self._x_cols = cols
+        if cols is None:
+            self._x_transforms = None
+        else:
+            cur = list(self._x_transforms or [])
+            n = len(cols)
+            if len(cur) < n:
+                cur = cur + [None] * (n - len(cur))
+            else:
+                cur = cur[:n]
+            self._x_transforms = cur
+        return self
+
+    def set_x_transforms(self, transforms: list[str | None] | None) -> "PlotSettingsBuilder":
+        """Set the per-X-column NumPy transform expressions for multivariable regression.
+
+        The list length must match the current x_cols length; if it does not,
+        it is silently resized to match so the two never drift apart.
+        """
+        cols = self._x_cols or []
+        n = len(cols)
+        if transforms is None:
+            self._x_transforms = [None] * n
+            return self
+        cur = list(transforms)
+        if len(cur) < n:
+            cur = cur + [None] * (n - len(cur))
+        else:
+            cur = cur[:n]
+        self._x_transforms = cur
         return self
 
     def set_params(self, params: list[str] | None) -> "PlotSettingsBuilder":
@@ -276,6 +324,16 @@ class PlotSettingsBuilder:
                     self._p0 is not None,
                 ]
             )
+        elif self._plot_type == PlotType.MULTIVARIABLE_REGRESSION:
+            return all(
+                [
+                    self._data_path is not None,
+                    self._sheet_name is not None,
+                    self._x_cols is not None and len(self._x_cols) >= 1,
+                    all(c is not None and c != "" for c in (self._x_cols or [])),
+                    self._y_col is not None,
+                ]
+            )
         else:
             return False
 
@@ -292,18 +350,24 @@ class PlotSettingsBuilder:
             missing.append("Data Path")
         if self._sheet_name is None:
             missing.append("Sheet Name")
-        if self._x_col is None:
-            missing.append("X Column")
         if self._y_col is None:
             missing.append("Y Column")
-        if self._plot_type == PlotType.SURFACE_3D and self._z_col is None:
-            missing.append("Z Column")
-        if self._params is None:
-            missing.append("Parameters")
-        if self._formula is None:
-            missing.append("Formula")
-        if self._p0 is None:
-            missing.append("Initial States")
+        if self._plot_type == PlotType.MULTIVARIABLE_REGRESSION:
+            if self._x_cols is None or len(self._x_cols) == 0:
+                missing.append("X Columns")
+            elif any(c is None or c == "" for c in self._x_cols):
+                missing.append("X Columns")
+        else:
+            if self._x_col is None:
+                missing.append("X Column")
+            if self._plot_type == PlotType.SURFACE_3D and self._z_col is None:
+                missing.append("Z Column")
+            if self._params is None:
+                missing.append("Parameters")
+            if self._formula is None:
+                missing.append("Formula")
+            if self._p0 is None:
+                missing.append("Initial States")
         return missing
 
     def build(self) -> PlotSettings:
@@ -326,27 +390,48 @@ class PlotSettingsBuilder:
         # for the type-checker and act as a defensive guard at runtime.
         assert self._data_path is not None
         assert self._sheet_name is not None
-        assert self._x_col is not None
         assert self._y_col is not None
-        assert self._params is not None
-        assert self._formula is not None
-        assert self._p0 is not None
-        if self._plot_type == PlotType.SURFACE_3D:
-            assert self._z_col is not None
+        if self._plot_type == PlotType.MULTIVARIABLE_REGRESSION:
+            assert self._x_cols is not None and len(self._x_cols) >= 1
+            # The model is fixed: Y = B_0 + B_1*X_1 + ... + B_n*X_n.
+            # Synthesise params / formula / p0 here so the rest of the
+            # pipeline (modelling, results panel) does not need a special case.
+            n = len(self._x_cols)
+            params = tuple(f"B_{i}" for i in range(n + 1))
+            formula = "B_0 + " + " + ".join(f"B_{i} * x_{i}" for i in range(1, n + 1))
+            p0 = tuple(["1.0"] * (n + 1))
+            x_col = self._x_cols[0]
+            z_col = self._z_col
+            x_transform = self._x_transform
+            x_transforms = tuple(self._x_transforms or [None] * n)
+        else:
+            assert self._x_col is not None
+            assert self._params is not None
+            assert self._formula is not None
+            assert self._p0 is not None
+            if self._plot_type == PlotType.SURFACE_3D:
+                assert self._z_col is not None
+            params = tuple(self._params)
+            formula = self._formula
+            p0 = tuple(self._p0)
+            x_col = self._x_col
+            z_col = self._z_col
+            x_transform = self._x_transform
+            x_transforms = ()
 
         return PlotSettings(
             plot_type=self._plot_type,
             data_path=self._data_path,
             sheet_name=self._sheet_name,
-            x_col=self._x_col,
+            x_col=x_col,
             y_col=self._y_col,
-            z_col=self._z_col,
-            x_transform=self._x_transform,
+            z_col=z_col,
+            x_transform=x_transform,
             y_transform=self._y_transform,
             z_transform=self._z_transform,
-            params=tuple(self._params),
-            formula=self._formula,
-            p0=tuple(self._p0),
+            params=params,
+            formula=formula,
+            p0=p0,
             plot_theme=self._plot_theme,
             title=self._title,
             x_label=self._x_label,
@@ -358,4 +443,6 @@ class PlotSettingsBuilder:
             x_axis_scale=self._x_axis_scale,
             y_axis_scale=self._y_axis_scale,
             colormap=self._colormap,
+            x_cols=tuple(self._x_cols) if self._x_cols else (),
+            x_transforms=x_transforms,
         )

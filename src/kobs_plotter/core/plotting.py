@@ -12,7 +12,12 @@ import numpy as np
 from kobs_plotter.core.diagnostics import PlotDiagnosticType
 from kobs_plotter.core.modelling import FitResult
 from kobs_plotter.core.strategies import STRATEGIES
-from kobs_plotter.core.types import PlotDataSeries, PlotPayload, PlotSettings  # noqa: F401
+from kobs_plotter.core.types import (  # noqa: F401
+    PlotDataSeries,
+    PlotPayload,
+    PlotSettings,
+    PlotType,
+)
 
 
 def plot(
@@ -40,6 +45,16 @@ def plot(
         PlotPayload bundling all inputs the UI needs for rendering.
     """
     if diagnostic != PlotDiagnosticType.PLOT:
+        # Multivariable regression residuals are plotted against the
+        # fitted (predicted) values rather than a single X axis, so we
+        # need the predicted array in the payload. Re-running the model
+        # here is cheap (one matmul) and keeps the residual/Q-Q payloads
+        # self-contained without computing the full main-plot mesh.
+        predicted: np.ndarray | None = None
+        x_cols: tuple[str, ...] = ()
+        if settings.plot_type == PlotType.MULTIVARIABLE_REGRESSION and data.X_matrix is not None:
+            predicted = result.model(data.X_matrix, *result.popt)
+            x_cols = settings.x_cols
         return PlotPayload(
             x=data.x,
             y=data.y,
@@ -50,6 +65,8 @@ def plot(
             residuals=result.residuals,
             settings=settings,
             diagnostic=diagnostic,
+            predicted=predicted,
+            x_cols=x_cols,
         )
 
     strategy = STRATEGIES[settings.plot_type]

@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from kobs_plotter.core.types import PlotType
 from kobs_plotter.ui import controller as ctrl
 from kobs_plotter.ui.ui_helpers import (
     divider,
@@ -110,7 +111,7 @@ class FilePanel(QWidget):
         super().__init__()
         self.state = state
         self.setMaximumWidth(360)
-        self.is_3d = False
+        self.mode: PlotType = PlotType.SCATTER_LINE
         self._path: str | None = None
         self._sheet_worker: _SheetListWorker | None = None
         self._preview_worker: _PreviewWorker | None = None
@@ -149,7 +150,11 @@ class FilePanel(QWidget):
         self.sheet_combo.currentTextChanged.connect(self._on_sheet_changed)
         layout.addWidget(self.sheet_combo)
 
-        # ── Column selectors ──────────────────────────────────────
+        # ── Column selectors (non-multivar: single X + Y + optional Z) ──
+        self.col_widget = QWidget()
+        col_layout = QVBoxLayout(self.col_widget)
+        col_layout.setContentsMargins(0, 0, 0, 0)
+        col_layout.setSpacing(8)
         col_row = QHBoxLayout()
         col_row.setSpacing(12)
         x_col = QVBoxLayout()
@@ -166,7 +171,7 @@ class FilePanel(QWidget):
         y_col.addWidget(self.y_combo)
         col_row.addLayout(x_col)
         col_row.addLayout(y_col)
-        layout.addLayout(col_row)
+        col_layout.addLayout(col_row)
 
         # ── Z column (3D only) ────────────────────────────────────
         self.z_col_widget = QWidget()
@@ -179,7 +184,28 @@ class FilePanel(QWidget):
         self.z_combo.currentTextChanged.connect(self._on_col_changed)
         z_col_layout.addWidget(self.z_combo)
         self.z_col_widget.setVisible(False)
-        layout.addWidget(self.z_col_widget)
+        col_layout.addWidget(self.z_col_widget)
+        layout.addWidget(self.col_widget)
+
+        # ── Multivariable column section ──────────────────────────
+        self.multivar_widget = _MultivarXSection(self.state)
+        self.multivar_widget.colsChanged.connect(self._push_multivar_cols)
+        self.multivar_widget.setVisible(False)
+        layout.addWidget(self.multivar_widget)
+
+        # Y column for multivar mode (kept separate from the single-mode
+        # Y combo so the two modes never fight over the same widget state).
+        self.multivar_y_widget = QWidget()
+        mvy_layout = QVBoxLayout(self.multivar_y_widget)
+        mvy_layout.setContentsMargins(0, 0, 0, 0)
+        mvy_layout.setSpacing(4)
+        mvy_layout.addWidget(field_label("Y column (dependent)"))
+        self.mv_y_combo = QComboBox()
+        self.mv_y_combo.setToolTip("Dependent variable column")
+        self.mv_y_combo.currentTextChanged.connect(self._on_mv_y_changed)
+        mvy_layout.addWidget(self.mv_y_combo)
+        self.multivar_y_widget.setVisible(False)
+        layout.addWidget(self.multivar_y_widget)
 
         layout.addWidget(divider())
 
@@ -219,12 +245,36 @@ class FilePanel(QWidget):
         self._load_sheets(path)
 
     # ── mode / visibility ─────────────────────────────────────────
-    def set_mode(self, is_3d: bool) -> None:
-        """Toggle 3D mode: show/hide the Z column selector."""
-        self.is_3d = is_3d
+    def set_mode(self, mode: PlotType) -> None:
+        """Switch the panel between single-variable and multivar layouts.
+
+        ``SCATTER_LINE`` and ``SURFACE_3D`` keep the single X / Y / Z combos
+        (Z shown only for 3D). ``MULTIVARIABLE_REGRESSION`` hides those and
+        shows the dynamic X-row list plus its own Y combo.
+        """
+        self.mode = mode
+        is_3d = mode == PlotType.SURFACE_3D
+        is_mv = mode == PlotType.MULTIVARIABLE_REGRESSION
+        self.col_widget.setVisible(not is_mv)
         self.z_col_widget.setVisible(is_3d)
+        self.multivar_widget.setVisible(is_mv)
+        self.multivar_y_widget.setVisible(is_mv)
+        # Clear single-mode Z when leaving 3D, and clear single-mode X/Y
+        # when entering multivar so stale state never gates readiness.
         if not is_3d:
             self.state.set_z_col(None)
+        if is_mv:
+            self.state.set_x_col(None)
+            self.state.set_y_col(None)
+            self.state.set_z_col(None)
+            # Ensure the multivar list has at least one row.
+            if self.multivar_widget.row_count() == 0:
+                self.multivar_widget.add_row()
+            self._push_multivar_cols()
+            self._on_mv_y_changed(self.mv_y_combo.currentText())
+        else:
+            self.state.set_x_cols(None)
+            self.state.set_x_transforms(None)
 
     # ── user actions ─────────────────────────────────────────────
     def _browse(self) -> None:
@@ -271,11 +321,12 @@ class FilePanel(QWidget):
             df_header = pd.read_excel(self._path, sheet_name=sheet_name, nrows=0)
         except (pd.errors.ParserError, pd.errors.EmptyDataError, OSError) as e:
             self.loadFailed.emit("Sheet load error", str(e))
-            for combo in (self.x_combo, self.y_combo, self.z_combo):
+            for combo in (self.x_combo, self.y_combo, self.z_combo, self.mv_y_combo):
                 combo.clear()
+            self.multivar_widget.set_columns([])
             return
         cols = list(df_header.columns)
-        for combo in (self.x_combo, self.y_combo, self.z_combo):
+        for combo in (self.x_combo, self.y_combo, self.z_combo, self.mv_y_combo):
             combo.blockSignals(True)
             combo.clear()
             combo.addItems(cols)
@@ -285,12 +336,20 @@ class FilePanel(QWidget):
             self.y_combo.setCurrentIndex(1)
         if len(cols) >= 3:
             self.z_combo.setCurrentIndex(2)
+        # Multivar Y defaults to the first column too; the X section picks
+        # the next ones automatically.
+        if cols:
+            self.mv_y_combo.setCurrentIndex(0)
+        self.multivar_widget.set_columns(cols)
         self._refresh_preview(sheet_name)
         # Push freshly defaulted columns to the state.
         self.state.set_x_col(self.x_combo.currentText() or None)
         self.state.set_y_col(self.y_combo.currentText() or None)
-        if self.is_3d:
+        if self.mode == PlotType.SURFACE_3D:
             self.state.set_z_col(self.z_combo.currentText() or None)
+        if self.mode == PlotType.MULTIVARIABLE_REGRESSION:
+            self._push_multivar_cols()
+            self._on_mv_y_changed(self.mv_y_combo.currentText())
 
     def _refresh_preview(self, sheet_name: str) -> None:
         if self._preview_worker is not None and self._preview_worker.isRunning():
@@ -319,11 +378,25 @@ class FilePanel(QWidget):
         )
 
     def _on_col_changed(self, _text: str) -> None:
-        """Push the current X/Y/Z selection to the state."""
+        """Push the current X/Y/Z selection to the state (non-multivar modes)."""
+        if self.mode == PlotType.MULTIVARIABLE_REGRESSION:
+            return
         self.state.set_x_col(self.x_combo.currentText() or None)
         self.state.set_y_col(self.y_combo.currentText() or None)
-        if self.is_3d:
+        if self.mode == PlotType.SURFACE_3D:
             self.state.set_z_col(self.z_combo.currentText() or None)
+
+    def _push_multivar_cols(self) -> None:
+        """Push the multivar X-row selections to :class:`AppState`."""
+        cols = self.multivar_widget.current_cols()
+        self.state.set_x_cols(cols if cols else None)
+        self.state.set_x_transforms(self.multivar_widget.current_transforms())
+
+    def _on_mv_y_changed(self, _text: str) -> None:
+        """Decode `_push_multivar_cols()` to AppState.set_x_cols()."""
+        if self.mode != PlotType.MULTIVARIABLE_REGRESSION:
+            return
+        self.state.set_y_col(self.mv_y_combo.currentText() or None)
 
     # ── reset ─────────────────────────────────────────────────────
     def on_reset(self) -> None:
@@ -333,13 +406,19 @@ class FilePanel(QWidget):
         self.state.set_data_path(None)
         self.sheet_combo.clear()
         self.state.set_sheet_name(None)
-        for combo in (self.x_combo, self.y_combo, self.z_combo):
+        for combo in (self.x_combo, self.y_combo, self.z_combo, self.mv_y_combo):
             combo.clear()
         self.state.set_x_col(None)
         self.state.set_y_col(None)
         self.state.set_z_col(None)
-        self.is_3d = False
+        self.state.set_x_cols(None)
+        self.state.set_x_transforms(None)
+        self.multivar_widget.reset()
+        self.mode = PlotType.SCATTER_LINE
+        self.col_widget.setVisible(True)
         self.z_col_widget.setVisible(False)
+        self.multivar_widget.setVisible(False)
+        self.multivar_y_widget.setVisible(False)
         self.preview_table.setRowCount(0)
         self.preview_table.setColumnCount(0)
         self.preview_label.setText("No sheet selected")
@@ -355,3 +434,135 @@ def _translate_io_error(error: object) -> tuple[str, str]:
     if isinstance(error, PermissionError):
         return "Permission denied", detail
     return "Could not read the Excel file", detail
+
+
+class _MultivarXSection(QWidget):
+    """Dynamic list of independent-variable rows for multivar mode.
+
+    Each row holds an auto-labelled ``X_{i}`` combo plus a remove button.
+    An Add button at the bottom appends a new ``X_{n+1}`` row. Labels are
+    renumbered whenever rows are added or removed so the visible labels
+    always read ``X_1, X_2, ...`` contiguously.
+    """
+
+    colsChanged = Signal()
+
+    def __init__(self, state: AppState) -> None:
+        super().__init__()
+        self.state = state
+        self._columns: list[str] = []
+        self._rows: list[_MultivarXRow] = []
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(6)
+
+        self._rows_layout = QVBoxLayout()
+        self._rows_layout.setSpacing(6)
+        self._rows_layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.addLayout(self._rows_layout)
+
+        self.add_btn = QPushButton("+ Add independent variable")
+        self.add_btn.setToolTip("Append another X column")
+        self.add_btn.clicked.connect(self.add_row)
+        self._layout.addWidget(self.add_btn)
+
+    # ── row management ───────────────────────────────────────────
+    def add_row(self) -> None:
+        row = _MultivarXRow(label=f"X_{len(self._rows) + 1}", columns=self._columns)
+        row.combo.currentTextChanged.connect(self._on_combo_changed)
+        row.removed.connect(lambda r=row: self._remove_row(r))
+        self._rows.append(row)
+        self._rows_layout.addWidget(row)
+        self._renumber()
+        self.colsChanged.emit()
+
+    def remove_row(self, index: int) -> None:
+        if not 0 <= index < len(self._rows):
+            return
+        row = self._rows.pop(index)
+        self._rows_layout.removeWidget(row)
+        row.deleteLater()
+        self._renumber()
+        self.colsChanged.emit()
+
+    def _remove_row(self, row: _MultivarXRow) -> None:
+        if row in self._rows:
+            self.remove_row(self._rows.index(row))
+
+    def _renumber(self) -> None:
+        for i, row in enumerate(self._rows):
+            row.set_label(f"X_{i + 1}")
+
+    def _on_combo_changed(self, _text: str) -> None:
+        self.colsChanged.emit()
+
+    # ── public access ────────────────────────────────────────────
+    def row_count(self) -> int:
+        return len(self._rows)
+
+    def set_columns(self, columns: list[str]) -> None:
+        """Populate every row's combo with the given column headers.
+
+        Each row preserves its current selection if still present in the
+        new column list; otherwise it falls back to the first available.
+        """
+        self._columns = list(columns)
+        for row in self._rows:
+            row.set_columns(self._columns)
+        self.colsChanged.emit()
+
+    def current_cols(self) -> list[str]:
+        return [r.current_col() for r in self._rows]
+
+    def current_transforms(self) -> list[str | None]:
+        # The file panel does not own transform widgets; transforms are
+        # owned by the config panel. Returns a list of None of the right
+        # length so AppState.set_x_cols can resize the transform list.
+        return [None] * len(self._rows)
+
+    def reset(self) -> None:
+        for row in list(self._rows):
+            self._rows_layout.removeWidget(row)
+            row.deleteLater()
+        self._rows.clear()
+        self._columns = []
+
+
+class _MultivarXRow(QWidget):
+    """One row in the multivar X section: label + combo + remove button."""
+
+    removed = Signal(object)
+
+    def __init__(self, label: str, columns: list[str]) -> None:
+        super().__init__()
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        self.label = QLabel(label)
+        self.label.setMinimumWidth(28)
+        layout.addWidget(self.label)
+        self.combo = QComboBox()
+        self.combo.addItems(columns)
+        layout.addWidget(self.combo, 1)
+        self.remove_btn = QPushButton("✕")
+        self.remove_btn.setFixedWidth(28)
+        self.remove_btn.setToolTip("Remove this independent variable")
+        self.remove_btn.clicked.connect(lambda: self.removed.emit(self))
+        layout.addWidget(self.remove_btn)
+
+    def set_label(self, label: str) -> None:
+        self.label.setText(label)
+
+    def set_columns(self, columns: list[str]) -> None:
+        current = self.combo.currentText()
+        self.combo.blockSignals(True)
+        self.combo.clear()
+        self.combo.addItems(columns)
+        if current in columns:
+            self.combo.setCurrentText(current)
+        elif columns:
+            self.combo.setCurrentIndex(0)
+        self.combo.blockSignals(False)
+
+    def current_col(self) -> str:
+        return self.combo.currentText()

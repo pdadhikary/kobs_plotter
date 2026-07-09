@@ -64,7 +64,7 @@ class PlotStrategy(ABC):
     def format_result_string(self, settings: PlotSettings, result: FitResult) -> str:
         """Format fit results into the multi-line string shown on the plot."""
         parameter_lines = [
-            f"{param}={opt:.4f} $\\pm$ {err:.3f}"
+            f"${param}$ = {opt:.4f} $\\pm$ {err:.3f}"
             for param, opt, err in zip(settings.params, result.popt, result.perr, strict=False)
         ]
         gof_lines = [

@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 from kobs_plotter.core.models import PREDEFINED_MODELS, PREDEFINED_MODELS_3D
+from kobs_plotter.core.types import PlotType
 from kobs_plotter.ui.ui_helpers import (
     divider,
     field_label,
@@ -69,21 +70,27 @@ class ConfigPanel(QWidget):
         super().__init__()
         self.state = state
         self.setMaximumWidth(360)
-        self.is_3d = False
+        self.mode: PlotType = PlotType.SCATTER_LINE
         # Cache of the user's last Custom (params, formula) so re-selecting
         # Custom restores their work instead of silently wiping it. Only
         # updated when the *currently selected* model is Custom.
         self._custom_cache: tuple[str, str] = ("", "")
         self._current_model: str = ""
+        # Per-X-column transform line edits owned by the multivar section.
+        self._mv_transform_inputs: list[QLineEdit] = []
 
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
         layout.setContentsMargins(16, 16, 16, 16)
 
-        # ── Data transformation ──────────────────────────────────
+        # ── Data transformation (single-variable) ───────────────
         layout.addWidget(section_label("Data transformation"))
 
-        layout.addWidget(field_label("Transform X"))
+        self.x_transform_widget = QWidget()
+        xt_layout = QVBoxLayout(self.x_transform_widget)
+        xt_layout.setContentsMargins(0, 0, 0, 0)
+        xt_layout.setSpacing(8)
+        xt_layout.addWidget(field_label("Transform X"))
         x_row = QHBoxLayout()
         x_row.addWidget(prefix_label("x' ="))
         self.x_transform = QLineEdit()
@@ -96,7 +103,8 @@ class ConfigPanel(QWidget):
         )
         self.x_transform.textChanged.connect(self.state.set_x_transform)
         x_row.addWidget(self.x_transform)
-        layout.addLayout(x_row)
+        xt_layout.addLayout(x_row)
+        layout.addWidget(self.x_transform_widget)
 
         layout.addWidget(field_label("Transform Y"))
         y_row = QHBoxLayout()
@@ -112,6 +120,32 @@ class ConfigPanel(QWidget):
         self.y_transform.textChanged.connect(self.state.set_y_transform)
         y_row.addWidget(self.y_transform)
         layout.addLayout(y_row)
+
+        # ── Multivariable section (per-X transforms + read-only formula) ──
+        self.mv_widget = QWidget()
+        mv_layout = QVBoxLayout(self.mv_widget)
+        mv_layout.setContentsMargins(0, 0, 0, 0)
+        mv_layout.setSpacing(10)
+        mv_layout.addWidget(field_label("Transform independent variables"))
+        self._mv_transforms_layout = QVBoxLayout()
+        self._mv_transforms_layout.setSpacing(6)
+        mv_layout.addLayout(self._mv_transforms_layout)
+
+        mv_layout.addWidget(field_label("Model formula (read-only)"))
+        formula_display_row = QHBoxLayout()
+        formula_display_row.addWidget(prefix_label("y ="))
+        self.mv_formula_display = QLineEdit()
+        self.mv_formula_display.setReadOnly(True)
+        self.mv_formula_display.setFont(mono_font(9))
+        self.mv_formula_display.setText("B_0 + B_1 * X_1")
+        self.mv_formula_display.setToolTip(
+            "Fixed multivariable regression model. Coefficients are fit "
+            "via ordinary least squares; the formula is shown for reference."
+        )
+        formula_display_row.addWidget(self.mv_formula_display)
+        mv_layout.addLayout(formula_display_row)
+        self.mv_widget.setVisible(False)
+        layout.addWidget(self.mv_widget)
 
         # ── Z transform (3D only, hidden) ────────────────────────
         self.z_transform_widget = CollapsibleSection()
@@ -131,14 +165,18 @@ class ConfigPanel(QWidget):
         layout.addWidget(divider())
 
         # ── Model selection ──────────────────────────────────────
-        layout.addWidget(section_label("Model selection"))
-        layout.addWidget(field_label("Model"))
+        self.model_section_widget = QWidget()
+        model_section_layout = QVBoxLayout(self.model_section_widget)
+        model_section_layout.setContentsMargins(0, 0, 0, 0)
+        model_section_layout.setSpacing(12)
+        model_section_layout.addWidget(section_label("Model selection"))
+        model_section_layout.addWidget(field_label("Model"))
         self.model_combo = QComboBox()
         self.model_combo.setToolTip(
             "Predefined 2D / 3D model, or Custom to define your own formula"
         )
         self.model_combo.currentTextChanged.connect(self._on_model_changed)
-        layout.addWidget(self.model_combo)
+        model_section_layout.addWidget(self.model_combo)
 
         # ── Parameter / formula box ──────────────────────────────
         self.param_box = QWidget()
@@ -150,9 +188,7 @@ class ConfigPanel(QWidget):
             "border: 1px solid palette(mid); border-radius: 8px; }"
         )
         self.param_box.setObjectName("paramBox")
-        param_box_layout.addWidget(
-            field_label("Parameters (comma separated, exclude x and y)")
-        )
+        param_box_layout.addWidget(field_label("Parameters (comma separated, exclude x and y)"))
         self.params_input = QLineEdit()
         self.params_input.setPlaceholderText("A, B, k")
         self.params_input.setFont(mono_font(9))
@@ -186,7 +222,8 @@ class ConfigPanel(QWidget):
         self.formula_input.textChanged.connect(self._on_custom_text_changed)
         formula_row.addWidget(self.formula_input)
         param_box_layout.addLayout(formula_row)
-        layout.addWidget(self.param_box)
+        model_section_layout.addWidget(self.param_box)
+        layout.addWidget(self.model_section_widget)
 
         # Status line showing parse errors / param-p0 mismatch in real time.
         self.status_label = QLabel("")
@@ -202,15 +239,84 @@ class ConfigPanel(QWidget):
         self.formula_input.setValidator(FormulaValidator())
 
     # ── mode switching ───────────────────────────────────────────
-    def set_mode(self, is_3d: bool) -> None:
-        self.is_3d = is_3d
+    def set_mode(self, mode: PlotType) -> None:
+        self.mode = mode
+        is_3d = mode == PlotType.SURFACE_3D
+        is_mv = mode == PlotType.MULTIVARIABLE_REGRESSION
+        self.x_transform_widget.setVisible(not is_mv)
         self.z_transform_widget.setVisible(is_3d)
         self.formula_prefix.setText("z =" if is_3d else "y =")
+        self.mv_widget.setVisible(is_mv)
+        self.model_section_widget.setVisible(not is_mv)
+        if not is_mv:
+            # Leaving multivar: drop any per-X transform state so it never
+            # gates readiness for the other modes.
+            self.state.set_x_transforms(None)
+            self._clear_mv_transform_inputs()
         self._populate_model_combo()
+
+    # ── multivar section helpers ──────────────────────────────────
+    def multivar_refresh(self, n: int) -> None:
+        """Rebuild the per-X transform rows and read-only formula for ``n`` predictors.
+
+        Called by :class:`MainWindow` whenever the multivar X-row list in
+        the file panel changes (add/remove/relabel). Per-X transform text
+        that the user already typed is preserved across relabelling.
+        """
+        if self.mode != PlotType.MULTIVARIABLE_REGRESSION:
+            return
+        self._rebuild_mv_transform_inputs(n)
+        self._refresh_mv_formula(n)
+        self._push_mv_transforms()
+
+    def _rebuild_mv_transform_inputs(self, n: int) -> None:
+        # Preserve existing text where possible (the row index, not the
+        # name, is what the user expects to be stable when they add/remove).
+        existing = [le.text() for le in self._mv_transform_inputs]
+        self._clear_mv_transform_inputs()
+        for i in range(n):
+            row_widget = QWidget()
+            row = QHBoxLayout(row_widget)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(8)
+            row.addWidget(prefix_label(f"X_{i + 1}' ="))
+            le = QLineEdit()
+            le.setPlaceholderText("np.log(x)")
+            le.setFont(mono_font(9))
+            le.setToolTip(_TRANSFORM_TIP)
+            if i < len(existing):
+                le.setText(existing[i])
+            le.textChanged.connect(self._push_mv_transforms)
+            row.addWidget(le)
+            self._mv_transform_inputs.append(le)
+            self._mv_transforms_layout.addWidget(row_widget)
+
+    def _clear_mv_transform_inputs(self) -> None:
+        while self._mv_transforms_layout.count():
+            item = self._mv_transforms_layout.takeAt(0)
+            if item is None:
+                break
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+        self._mv_transform_inputs = []
+
+    def _refresh_mv_formula(self, n: int) -> None:
+        if n <= 0:
+            self.mv_formula_display.setText("")
+            return
+        rhs = " + ".join(f"B_{i} * X_{i}" for i in range(1, n + 1))
+        self.mv_formula_display.setText(f"B_0 + {rhs}")
+
+    def _push_mv_transforms(self) -> None:
+        if self.mode != PlotType.MULTIVARIABLE_REGRESSION:
+            return
+        transforms: list[str | None] = [le.text() or None for le in self._mv_transform_inputs]
+        self.state.set_x_transforms(transforms)
 
     # ── model dropdown ────────────────────────────────────────────
     def _populate_model_combo(self) -> None:
-        models = PREDEFINED_MODELS_3D if self.is_3d else PREDEFINED_MODELS
+        models = PREDEFINED_MODELS_3D if self.mode == PlotType.SURFACE_3D else PREDEFINED_MODELS
         self.model_combo.blockSignals(True)
         self.model_combo.clear()
         self.model_combo.addItems([*models.keys(), "Custom"])
@@ -226,14 +332,16 @@ class ConfigPanel(QWidget):
         in-progress Custom work.
         """
         # If we're LEAVING Custom, save the current Custom edits first.
-        if self._current_model == "Custom" and (self.params_input.text() or self.formula_input.text()):
+        if self._current_model == "Custom" and (
+            self.params_input.text() or self.formula_input.text()
+        ):
             self._custom_cache = (
                 self.params_input.text(),
                 self.formula_input.text(),
             )
         self._current_model = name
 
-        models = PREDEFINED_MODELS_3D if self.is_3d else PREDEFINED_MODELS
+        models = PREDEFINED_MODELS_3D if self.mode == PlotType.SURFACE_3D else PREDEFINED_MODELS
         if name == "Custom":
             cached_params, cached_formula = self._custom_cache
             self.params_input.setText(cached_params)
@@ -274,8 +382,13 @@ class ConfigPanel(QWidget):
         self.params_input.setText("")
         self.formula_input.setText("")
         self._custom_cache = ("", "")
-        self.is_3d = False
+        self.mode = PlotType.SCATTER_LINE
         self.formula_prefix.setText("y =")
+        self.x_transform_widget.setVisible(True)
         self.z_transform_widget.setVisible(False)
+        self.mv_widget.setVisible(False)
+        self.model_section_widget.setVisible(True)
+        self._clear_mv_transform_inputs()
+        self.mv_formula_display.setText("B_0 + B_1 * X_1")
         self.status_label.setText("")
         self._populate_model_combo()

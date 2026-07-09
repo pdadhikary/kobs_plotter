@@ -35,6 +35,13 @@ def _surface_3d() -> PlotStrategy:
     return Surface3DStrategy()
 
 
+@cache
+def _multivariable() -> PlotStrategy:
+    from kobs_plotter.core.strategies.multivariable import MultivariableRegressionStrategy
+
+    return MultivariableRegressionStrategy()
+
+
 class _LazyStrategyRegistry:
     """A Mapping[PlotType, PlotStrategy] that imports strategies on first use."""
 
@@ -64,6 +71,7 @@ class _LazyStrategyRegistry:
 _FACTORIES: dict[PlotType, Callable[[], PlotStrategy]] = {
     PlotType.SCATTER_LINE: _scatter_line,
     PlotType.SURFACE_3D: _surface_3d,
+    PlotType.MULTIVARIABLE_REGRESSION: _multivariable,
 }
 
 STRATEGIES: _LazyStrategyRegistry = _LazyStrategyRegistry()

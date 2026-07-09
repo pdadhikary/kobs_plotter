@@ -27,6 +27,8 @@ class PlotType(Enum):
     SCATTER_LINE = auto()
     """3D surface plot with scatter points."""
     SURFACE_3D = auto()
+    """Multivariable linear regression: Y = B_0 + B_1*X_1 + ... + B_n*X_n."""
+    MULTIVARIABLE_REGRESSION = auto()
 
 
 @dataclass(frozen=True)
@@ -63,6 +65,12 @@ class PlotSettings:
     line_color: str
     line_style: str
     colormap: str
+    # Multivariable regression: independent columns and per-column transforms.
+    # For SCATTER_LINE / SURFACE_3D these are empty / ignored. Declared last
+    # because they carry defaults and Python disallows non-default fields
+    # after default-bearing ones.
+    x_cols: tuple[str, ...] = ()
+    x_transforms: tuple[str | None, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -75,6 +83,10 @@ class PlotDataSeries:
     x: np.ndarray
     y: np.ndarray
     z: np.ndarray | None
+    # Multivariable regression: (n_samples, k_independent) matrix of
+    # transformed independent columns (excluding the intercept column).
+    # None for SCATTER_LINE / SURFACE_3D.
+    X_matrix: np.ndarray | None = None
 
 
 @dataclass(frozen=True)
@@ -123,3 +135,10 @@ class PlotPayload:
 
     conf_upper: np.ndarray | None = None
     """Upper confidence band for 2D plots; None for 3D."""
+
+    x_cols: tuple[str, ...] = ()
+    """Independent column names for multivariable regression; empty otherwise."""
+
+    predicted: np.ndarray | None = None
+    """Fitted (predicted) Y values for multivariable regression; None for 2D/3D fits
+    where the prediction is captured in y_fit / z_fit respectively."""

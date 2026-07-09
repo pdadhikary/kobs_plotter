@@ -40,6 +40,8 @@ _READY_FIELDS = {
     "formula",
     "p0",
     "plot_type",
+    "x_cols",
+    "x_transforms",
 }
 
 
@@ -120,6 +122,16 @@ class AppState(QObject, PlotSettingsBuilder):
     def set_z_transform(self, transform: str | None) -> AppState:
         super().set_z_transform(transform)
         self._announce("z_transform", transform, affects_ready=False)
+        return self
+
+    def set_x_cols(self, x_cols: list[str] | None) -> AppState:
+        super().set_x_cols(x_cols)
+        self._announce("x_cols", x_cols, affects_ready=True)
+        return self
+
+    def set_x_transforms(self, transforms: list[str | None] | None) -> AppState:
+        super().set_x_transforms(transforms)
+        self._announce("x_transforms", transforms, affects_ready=False)
         return self
 
     def set_params(self, params: list[str] | None) -> AppState:
@@ -206,6 +218,8 @@ class AppState(QObject, PlotSettingsBuilder):
             ("params", None),
             ("formula", None),
             ("p0", None),
+            ("x_cols", None),
+            ("x_transforms", None),
             ("plot_theme", "ggplot"),
             ("title", None),
             ("x_label", None),

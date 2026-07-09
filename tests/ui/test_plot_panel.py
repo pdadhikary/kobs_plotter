@@ -38,12 +38,14 @@ def test_safe_default_missing_falls_back_to_index0(qtbot, main_window):
 
 
 def test_mode_toggle_visibility(qtbot, main_window):
+    from kobs_plotter.core.settings import PlotType
+
     pp = main_window.plot_panel
-    pp.set_mode(True)
+    pp.set_mode(PlotType.SURFACE_3D)
     assert pp.z_label_widget.isHidden() is False
     assert pp.colormap_widget.isHidden() is False
     assert pp.line_style_widget.isHidden() is True
-    pp.set_mode(False)
+    pp.set_mode(PlotType.SCATTER_LINE)
     assert pp.z_label_widget.isHidden() is True
     assert pp.colormap_widget.isHidden() is True
     assert pp.line_style_widget.isHidden() is False
@@ -57,3 +59,33 @@ def test_reset_restores_defaults(qtbot, main_window):
     assert pp.title_input.text() == ""
     assert pp.scatter_color.value() == DEFAULT_POINT_COLOR
     assert pp.line_color.value() == DEFAULT_LINE_COLOR
+
+
+def test_multivar_label_visibility(qtbot, main_window):
+    """X/Y label fields hide at >=3 predictors; Z label surfaces at n=2."""
+    from kobs_plotter.core.settings import PlotType
+
+    pp = main_window.plot_panel
+    pp.set_mode(PlotType.MULTIVARIABLE_REGRESSION)
+
+    pp.multivar_refresh(1)
+    assert pp.xy_label_widget.isHidden() is False
+    assert pp.z_label_widget.isHidden() is True
+
+    pp.multivar_refresh(2)
+    assert pp.xy_label_widget.isHidden() is False
+    assert pp.z_label_widget.isHidden() is False
+
+    pp.multivar_refresh(3)
+    assert pp.xy_label_widget.isHidden() is True
+    assert pp.z_label_widget.isHidden() is True
+
+    # Leaving multivar mode (e.g. into 3D) restores Z label visibility.
+    pp.set_mode(PlotType.SURFACE_3D)
+    assert pp.xy_label_widget.isHidden() is False
+    assert pp.z_label_widget.isHidden() is False
+
+    # Reset returns to the SCATTER_LINE default: X/Y visible, Z hidden.
+    pp.on_reset()
+    assert pp.xy_label_widget.isHidden() is False
+    assert pp.z_label_widget.isHidden() is True
