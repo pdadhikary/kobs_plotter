@@ -244,7 +244,7 @@ without losing your other settings.
 
 If you use Kobs-Plotter in your research, please cite it as:
 
-> Adhikary, P. D. (2026). Kobs-Plotter (Version 0.4.4) [Software].
+> Adhikary, P. D. (2026). Kobs-Plotter (Version 0.5.0) [Software].
 > GitHub. <https://github.com/pdadhikary/kobs_plotter>
 
 ```bibtex
@@ -253,7 +253,7 @@ If you use Kobs-Plotter in your research, please cite it as:
     title        = {Kobs-Plotter: A desktop application for nonlinear curve fitting of tabular data},
     year         = {2026},
     publisher    = {GitHub},
-    version      = {0.4.4},
+    version      = {0.5.0},
     url          = {https://github.com/pdadhikary/kobs_plotter}
 }
 ```

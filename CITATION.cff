@@ -1,7 +1,7 @@
 # CITATION.cff
 cff-version: 1.2.0
 title: Kobs-Plotter
-version: 0.4.4
+version: 0.5.0
 authors:
   - family-names: Adhikary
     given-names: Prachurya Deepta
