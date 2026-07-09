@@ -36,7 +36,7 @@ from kobs_plotter.core.defaults import (
     DEFAULT_POINT_COLOR,
     DEFAULT_THEME,
 )
-from kobs_plotter.core.types import AxisScale
+from kobs_plotter.core.types import AxisScale, PlotType
 from kobs_plotter.ui.ui_helpers import divider, field_label, section_label
 from kobs_plotter.ui.viewmodel import AppState
 from kobs_plotter.ui.widgets import CollapsibleSection, ColorSwatchButton, safe_set_current
@@ -91,7 +91,9 @@ class PlotPanel(QWidget):
         super().__init__()
         self.state = state
         self.setMaximumWidth(360)
-        self.is_3d = False
+        self.mode: PlotType = PlotType.SCATTER_LINE
+        # Current multivar predictor count (None when not in multivar mode).
+        self._mv_n: int | None = None
 
         self._themes = _available_themes()
         self._colormaps = _available_colormaps()
@@ -119,19 +121,28 @@ class PlotPanel(QWidget):
         self.title_input.textChanged.connect(self.state.set_title)
         layout.addWidget(self.title_input)
 
-        layout.addWidget(field_label("X axis"))
+        # X / Y axis labels. Grouped into one container so multivar mode
+        # (>=3 predictors, where the plot becomes Actual vs Predicted and the
+        # labels are fixed) can hide both of them with a single setVisible()
+        # call. The X and Y *editable* label fields stay usable for the
+        # single-variable, 3D, and multivar n<=2 cases.
+        self.xy_label_widget = QWidget()
+        xy_layout = QVBoxLayout(self.xy_label_widget)
+        xy_layout.setContentsMargins(0, 0, 0, 0)
+        xy_layout.setSpacing(4)
+        xy_layout.addWidget(field_label("X axis"))
         self.x_label_input = QLineEdit()
         self.x_label_input.setPlaceholderText("e.g. Time (s)")
         self.x_label_input.setToolTip("X axis label. LaTeX supported via $...$.")
         self.x_label_input.textChanged.connect(self.state.set_x_label)
-        layout.addWidget(self.x_label_input)
-
-        layout.addWidget(field_label("Y axis"))
+        xy_layout.addWidget(self.x_label_input)
+        xy_layout.addWidget(field_label("Y axis"))
         self.y_label_input = QLineEdit()
         self.y_label_input.setPlaceholderText("e.g. Conductance (S)")
         self.y_label_input.setToolTip("Y axis label. LaTeX supported via $...$.")
         self.y_label_input.textChanged.connect(self.state.set_y_label)
-        layout.addWidget(self.y_label_input)
+        xy_layout.addWidget(self.y_label_input)
+        layout.addWidget(self.xy_label_widget)
 
         self.z_label_widget = CollapsibleSection()
         self.z_label_widget.add_widget(field_label("Z axis"))
@@ -205,13 +216,47 @@ class PlotPanel(QWidget):
 
         layout.addStretch()
 
-    def set_mode(self, is_3d: bool) -> None:
-        """Toggle 2D/3D sections."""
-        self.is_3d = is_3d
+    def set_mode(self, mode: PlotType) -> None:
+        """Toggle 2D / 3D / multivar sections."""
+        self.mode = mode
+        is_3d = mode == PlotType.SURFACE_3D
+        is_mv = mode == PlotType.MULTIVARIABLE_REGRESSION
+        if not is_mv:
+            self._mv_n = None
         self.z_label_widget.setVisible(is_3d)
-        self.line_style_widget.setVisible(not is_3d)
-        self.axis_scale_widget.setVisible(not is_3d)
+        # Multivar hides line style, axis scales, and colormap since the
+        # geometry is fixed (regression line / plane / Actual-vs-Predicted).
+        show_line = (not is_3d) and (not is_mv)
+        self.line_style_widget.setVisible(show_line)
+        self.axis_scale_widget.setVisible(show_line)
         self.colormap_widget.setVisible(is_3d)
+        self._apply_label_visibility()
+
+    def multivar_refresh(self, n: int) -> None:
+        """Sync the predictor count and re-evaluate label-field visibility.
+
+        Called by :class:`MainWindow` whenever the file panel's multivar X-row
+        list changes. Drives the rule: with >=3 predictors the plot becomes
+        Actual vs Predicted and the X/Y axis labels are fixed ("Actual" /
+        "Predicted"), so the editable label fields are hidden; with exactly
+        2 predictors the reused 3D renderer plots the dependent Y on the Z
+        axis, so the Z-axis label input is surfaced.
+        """
+        self._mv_n = n
+        self._apply_label_visibility()
+
+    def _apply_label_visibility(self) -> None:
+        """Drive X / Y / Z label field visibility from mode + predictor count."""
+        is_mv = self.mode == PlotType.MULTIVARIABLE_REGRESSION
+        mv_n = self._mv_n or 0
+        # X/Y editable labels are hidden only when >=3 predictors (Actual
+        # vs Predicted, where labels are fixed by the renderer).
+        hide_xy = is_mv and mv_n >= 3
+        self.xy_label_widget.setVisible(not hide_xy)
+        # Z label is shown for 3D surface mode and for the multivar n=2 case
+        # (which reuses the 3D renderer — the dependent Y sits on the Z axis).
+        show_z = self.mode == PlotType.SURFACE_3D or (is_mv and mv_n == 2)
+        self.z_label_widget.setVisible(show_z)
 
     # ── reset ─────────────────────────────────────────────────────
     def on_reset(self) -> None:
@@ -226,7 +271,8 @@ class PlotPanel(QWidget):
         safe_set_current(self.x_axis_scale_combo, DEFAULT_AXIS_SCALE)
         safe_set_current(self.y_axis_scale_combo, DEFAULT_AXIS_SCALE)
         safe_set_current(self.colormap_combo, DEFAULT_COLORMAP)
-        self.is_3d = False
-        self.z_label_widget.setVisible(False)
+        self.mode = PlotType.SCATTER_LINE
+        self._mv_n = None
         self.line_style_widget.setVisible(True)
         self.colormap_widget.setVisible(False)
+        self._apply_label_visibility()

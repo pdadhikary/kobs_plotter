@@ -12,11 +12,13 @@ def test_predefined_model_populates_inputs(qtbot, main_window):
 
 
 def test_mode_switch_shows_z(qtbot, main_window):
+    from kobs_plotter.core.settings import PlotType
+
     cp = main_window.config_panel
-    cp.set_mode(True)
+    cp.set_mode(PlotType.SURFACE_3D)
     assert cp.z_transform_widget.isHidden() is False
     assert cp.formula_prefix.text() == "z ="
-    cp.set_mode(False)
+    cp.set_mode(PlotType.SCATTER_LINE)
     assert cp.z_transform_widget.isHidden() is True
     assert cp.formula_prefix.text() == "y ="
 
@@ -49,6 +51,30 @@ def test_param_p0_pushed_to_state(qtbot, main_window):
     st = main_window.controller.state
     assert st._params == ["A", "B", "k"]
     assert st._p0 == ["np.max(y)", "1.0", "1.0"]
+
+
+def test_multivar_refresh_rebuilds_transform_inputs(qtbot, main_window):
+    """Removing a multivar X row must shrink the config panel's transform rows.
+
+    Regression: previously the per-row QLineEdit widgets were not destroyed
+    on rebuild (the clear loop skipped sub-layouts), so the visible row count
+    stayed frozen at the largest value ever set.
+    """
+    from kobs_plotter.core.settings import PlotType
+
+    cp = main_window.config_panel
+    cp.set_mode(PlotType.MULTIVARIABLE_REGRESSION)
+    cp.multivar_refresh(2)
+    assert len(cp._mv_transform_inputs) == 2
+    assert cp._mv_transforms_layout.count() == 2
+    # Drop to one predictor; both the cached list and the live layout must shrink.
+    cp.multivar_refresh(1)
+    assert len(cp._mv_transform_inputs) == 1
+    assert cp._mv_transforms_layout.count() == 1
+    # Add back to three; rows grow again.
+    cp.multivar_refresh(3)
+    assert len(cp._mv_transform_inputs) == 3
+    assert cp._mv_transforms_layout.count() == 3
 
 
 def test_reset_clears_transforms_and_restores_default_model(qtbot, main_window):

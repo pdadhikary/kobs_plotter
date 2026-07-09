@@ -177,6 +177,59 @@ def _render_unsupported(figure: Figure, payload: PlotPayload) -> None:
     )
 
 
+# ── Multivariable regression renderers ────────────────────────────
+
+
+def _render_multivar_plot(figure: Figure, payload: PlotPayload) -> None:
+    """Render a multivariable regression plot, branching on the predictor count.
+
+    * 1 predictor -> reuse the 2D scatter+line+band renderer.
+    * 2 predictors -> reuse the 3D scatter+plane renderer.
+    * 3+ predictors -> 2D Actual vs Predicted scatter with a y=x reference line
+      and fixed axis labels.
+    """
+    n = len(payload.x_cols)
+    if n == 1:
+        _render_scatter_plot(figure, payload)
+        return
+    if n == 2:
+        _render_surface_plot(figure, payload)
+        return
+    # 3+ predictors: Actual vs Predicted.
+    settings = payload.settings
+    ax = figure.add_subplot(111)
+    ax.scatter(payload.x, payload.y, color=settings.point_color, zorder=5)
+    lo = float(min(payload.x.min(), payload.y.min()))
+    hi = float(max(payload.x.max(), payload.y.max()))
+    ax.plot([lo, hi], [lo, hi], color=settings.line_color, linestyle=settings.line_style)
+    ax.set_title(settings.title or "")
+    ax.set_xlabel("Actual")
+    ax.set_ylabel("Predicted")
+    figure.subplots_adjust(right=0.72)
+    if payload.result_string:
+        _add_result_text(figure, ax, payload.result_string)
+
+
+def _render_multivar_residual(figure: Figure, payload: PlotPayload) -> None:
+    """Residuals plotted against the fitted (predicted) values.
+
+    For 3+ predictors there is no single independent axis to plot against,
+    so Predicted vs Residual is the canonical view. We use it for every
+    multivar dimension for consistency.
+    """
+    settings = payload.settings
+    ax = figure.add_subplot(111)
+    predicted = payload.predicted if payload.predicted is not None else payload.x
+    ax.scatter(predicted, payload.residuals, color=settings.point_color, zorder=5)
+    ax.axhline(
+        y=0, label="Baseline", color=settings.line_color, linestyle=settings.line_style
+    )
+    ax.set_title(settings.title or "")
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Residuals")
+    figure.legend()
+
+
 _RENDERERS: dict[tuple[PlotType, PlotDiagnosticType], Renderer] = {
     (PlotType.SCATTER_LINE, PlotDiagnosticType.PLOT): _render_scatter_plot,
     (PlotType.SCATTER_LINE, PlotDiagnosticType.RESIDUAL): _render_scatter_residual,
@@ -184,6 +237,9 @@ _RENDERERS: dict[tuple[PlotType, PlotDiagnosticType], Renderer] = {
     (PlotType.SURFACE_3D, PlotDiagnosticType.PLOT): _render_surface_plot,
     (PlotType.SURFACE_3D, PlotDiagnosticType.RESIDUAL): _render_surface_residual,
     (PlotType.SURFACE_3D, PlotDiagnosticType.QQ_PLOT): _render_qq,
+    (PlotType.MULTIVARIABLE_REGRESSION, PlotDiagnosticType.PLOT): _render_multivar_plot,
+    (PlotType.MULTIVARIABLE_REGRESSION, PlotDiagnosticType.RESIDUAL): _render_multivar_residual,
+    (PlotType.MULTIVARIABLE_REGRESSION, PlotDiagnosticType.QQ_PLOT): _render_qq,
 }
 
 

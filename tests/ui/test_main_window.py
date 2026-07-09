@@ -38,8 +38,21 @@ def test_plot_type_combo_carries_enum(qtbot, main_window):
     main_window.plot_type_combo.setCurrentIndex(1)
     assert main_window.plot_type_combo.currentData() is PlotType.SURFACE_3D
     # Mode propagation: Z column visible on file panel in 3D.
-    assert main_window.file_panel.is_3d is True
+    assert main_window.file_panel.mode is PlotType.SURFACE_3D
     assert main_window.file_panel.z_col_widget.isHidden() is False
+
+
+def test_plot_type_combo_has_multivar(qtbot, main_window):
+    from kobs_plotter.core.settings import PlotType
+
+    assert main_window.plot_type_combo.count() == 3
+    assert main_window.plot_type_combo.itemData(2) is PlotType.MULTIVARIABLE_REGRESSION
+    main_window.plot_type_combo.setCurrentIndex(2)
+    assert main_window.file_panel.mode is PlotType.MULTIVARIABLE_REGRESSION
+    assert main_window.file_panel.multivar_widget.isHidden() is False
+    assert main_window.file_panel.col_widget.isHidden() is True
+    assert main_window.config_panel.mv_widget.isHidden() is False
+    assert main_window.config_panel.model_section_widget.isHidden() is True
 
 
 def test_full_compute_run_populates_results(qtbot, main_window, sample_xlsx):

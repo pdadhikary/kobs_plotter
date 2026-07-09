@@ -155,6 +155,10 @@ class MainWindow(QMainWindow):
         # compute-button enable state follows readiness.
         self.controller.state.readyChanged.connect(self._update_button_state)
         self.controller.state.missingFieldsChanged.connect(self._update_status_missing_fields)
+        # Multivar config-panel refresh is driven by the file panel's X-row
+        # section; the slot itself no-ops unless the active mode is multivar,
+        # so wiring it once at startup is safe.
+        self.file_panel.multivar_widget.colsChanged.connect(self._on_multivar_cols_changed)
         # Initial plot-type sync.
         self.controller.state.set_plot_type(PlotType.SCATTER_LINE)
         self._update_button_state(self.controller.state.is_ready())
@@ -182,7 +186,8 @@ class MainWindow(QMainWindow):
         self.plot_type_combo = QComboBox()
         self.plot_type_combo.addItem("Scatter / Line", PlotType.SCATTER_LINE)
         self.plot_type_combo.addItem("Surface 3D", PlotType.SURFACE_3D)
-        self.plot_type_combo.setToolTip("2D scatter/line or 3D surface fit")
+        self.plot_type_combo.addItem("Multivariable Regression", PlotType.MULTIVARIABLE_REGRESSION)
+        self.plot_type_combo.setToolTip("2D scatter/line, 3D surface, or multivariable linear fit")
         self.plot_type_combo.currentIndexChanged.connect(self._on_plot_type_changed)
         h.addWidget(self.plot_type_combo)
         h.addSpacing(16)
@@ -326,10 +331,16 @@ class MainWindow(QMainWindow):
         if data is None:
             return
         self.controller.state.set_plot_type(data)
-        is_3d = data == PlotType.SURFACE_3D
-        self.config_panel.set_mode(is_3d)
-        self.plot_panel.set_mode(is_3d)
-        self.file_panel.set_mode(is_3d)
+        self.config_panel.set_mode(data)
+        self.plot_panel.set_mode(data)
+        self.file_panel.set_mode(data)
+        if data == PlotType.MULTIVARIABLE_REGRESSION:
+            self._on_multivar_cols_changed()
+
+    def _on_multivar_cols_changed(self) -> None:
+        n = self.file_panel.multivar_widget.row_count()
+        self.config_panel.multivar_refresh(n)
+        self.plot_panel.multivar_refresh(n)
 
     def _on_file_loaded(self, path: str) -> None:
         """Refresh recent-files menu + write to QSettings."""
